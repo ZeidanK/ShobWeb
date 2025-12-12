@@ -1,293 +1,185 @@
-import React, { useRef, useEffect, useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
   Paper,
   Chip,
-  IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
+  DialogActions,
   Switch,
   FormControlLabel,
   Button,
-  Tooltip,
+  CircularProgress,
 } from '@mui/material';
 import {
-  Fullscreen as FullscreenIcon,
-  MyLocation as MyLocationIcon,
-  Layers as LayersIcon,
   Videocam as VideocamIcon,
-  Warning as WarningIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import mapboxgl from 'mapbox-gl';
-import 'mapbox-gl/dist/mapbox-gl.css';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+} from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
 
-// Set your Mapbox access token
-mapboxgl.accessToken = process.env.REACT_APP_MAPBOX_TOKEN || 'pk.eyJ1IjoidGVzdC11c2VyIiwiYSI6ImNsZjM4N3g3djBhdmczY3J1cGdpaHVpZjUifQ.demo-token';
+// Fix for default markers in react-leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Create custom camera icons based on status
+const createCameraIcon = (status: 'online' | 'offline' | 'maintenance') => {
+  const colors = {
+    online: '#4caf50',
+    offline: '#f44336',
+    maintenance: '#ff9800'
+  };
+
+  const svgIcon = `
+    <svg width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="18" fill="${colors[status]}" stroke="white" stroke-width="3"/>
+      <path d="M12 14h8v6h-8z M20 17l4-2v6l-4-2z" fill="white"/>
+    </svg>
+  `;
+
+  return L.divIcon({
+    html: svgIcon,
+    className: 'custom-camera-marker',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+};
 
 /**
- * Camera interface defining the structure of camera objects
+ * Camera interface matching backend model structure
  */
 interface Camera {
-  id: string;
+  _id: string;
   name: string;
+  description?: string;
+  streamUrl: string;
   status: 'online' | 'offline' | 'maintenance';
+  type: 'ip' | 'analog' | 'usb';
   location: {
-    coordinates: [number, number];
-    address: string;
+    coordinates: [number, number]; // [longitude, latitude]
+    address?: string;
   };
-  activeEvents: number;
+  settings: {
+    resolution: string;
+    fps: number;
+    recordingEnabled: boolean;
+  };
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 /**
- * EventMarker interface defining the structure of event markers on the map
- */
-interface EventMarker {
-  id: string;
-  type: string;
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  location: [number, number];
-  timestamp: string;
-  camera: string;
-}
-
-/**
- * MapView Component - Interactive map displaying security cameras and events
- * Features:
- * - Real-time camera locations and status
- * - Event markers with severity indicators
- * - Interactive popups and controls
- * - Layer toggling and map controls
+ * MapView Component - Interactive map displaying security cameras
+ * Uses Leaflet with OpenStreetMap (completely free, no API key required)
  */
 const MapView: React.FC = () => {
-  const mapContainer = useRef<HTMLDivElement>(null);
-  const map = useRef<mapboxgl.Map | null>(null);
-  const [mapLoaded, setMapLoaded] = useState(false);
-  const [showLayers, setShowLayers] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
-  const [showEvents, setShowEvents] = useState(true);
   const [showCameras, setShowCameras] = useState(true);
+  const [cameras, setCameras] = useState<Camera[]>([]);
 
-  // Mock data for demonstration - replace with API calls
-  const cameras: Camera[] = [
-    {
-      id: '1',
-      name: 'Front Gate Camera',
-      status: 'online',
-      location: {
-        coordinates: [-74.0060, 40.7128], // NYC coordinates
-        address: '123 Main St, New York, NY',
-      },
-      activeEvents: 2,
-    },
-    {
-      id: '2',
-      name: 'Parking Lot Camera',
-      status: 'online',
-      location: {
-        coordinates: [-74.0070, 40.7138],
-        address: '125 Main St, New York, NY',
-      },
-      activeEvents: 0,
-    },
-    {
-      id: '3',
-      name: 'Side Entrance Camera',
-      status: 'offline',
-      location: {
-        coordinates: [-74.0050, 40.7118],
-        address: '121 Main St, New York, NY',
-      },
-      activeEvents: 0,
-    },
-  ];
-
-  const events: EventMarker[] = [
-    {
-      id: '1',
-      type: 'Person Detected',
-      severity: 'medium',
-      location: [-74.0060, 40.7128],
-      timestamp: '2 min ago',
-      camera: 'Front Gate Camera',
-    },
-    {
-      id: '2',
-      type: 'Unauthorized Access',
-      severity: 'high',
-      location: [-74.0055, 40.7125],
-      timestamp: '5 min ago',
-      camera: 'Front Gate Camera',
-    },
-  ];
+  // API call to fetch cameras - replace with actual API endpoint
+  const fetchCameras = async () => {
+    try {
+      setLoading(true);
+      
+      // Mock data matching backend structure for now
+      const mockCameras: Camera[] = [
+        {
+          _id: '1',
+          name: 'Front Gate Camera',
+          description: 'Main entrance monitoring',
+          streamUrl: 'rtsp://192.168.1.100:554/stream',
+          status: 'online',
+          type: 'ip',
+          location: {
+            coordinates: [-74.0060, 40.7128], // NYC coordinates
+            address: '123 Main St, New York, NY',
+          },
+          settings: {
+            resolution: '1920x1080',
+            fps: 30,
+            recordingEnabled: true,
+          },
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          _id: '2',
+          name: 'Parking Lot Camera',
+          description: 'Vehicle monitoring area',
+          streamUrl: 'rtsp://192.168.1.101:554/stream',
+          status: 'online',
+          type: 'ip',
+          location: {
+            coordinates: [-74.0070, 40.7138],
+            address: '125 Main St, New York, NY',
+          },
+          settings: {
+            resolution: '1920x1080',
+            fps: 25,
+            recordingEnabled: false,
+          },
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+        {
+          _id: '3',
+          name: 'Side Entrance Camera',
+          description: 'Secondary access point',
+          streamUrl: 'rtsp://192.168.1.102:554/stream',
+          status: 'offline',
+          type: 'ip',
+          location: {
+            coordinates: [-74.0050, 40.7118],
+            address: '121 Main St, New York, NY',
+          },
+          settings: {
+            resolution: '1280x720',
+            fps: 20,
+            recordingEnabled: true,
+          },
+          isActive: true,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        },
+      ];
+      
+      setCameras(mockCameras);
+    } catch (error) {
+      console.error('Error fetching cameras:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   /**
-   * Initialize Mapbox map on component mount
+   * Initialize component - fetch cameras
    */
   useEffect(() => {
-    if (map.current || !mapContainer.current) return;
-
-    map.current = new mapboxgl.Map({
-      container: mapContainer.current,
-      style: 'mapbox://styles/mapbox/streets-v12',
-      center: [-74.0060, 40.7128], // NYC
-      zoom: 15,
-    });
-
-    map.current.on('load', () => {
-      setMapLoaded(true);
-      addCameraMarkers();
-      addEventMarkers();
-    });
-
-    return () => {
-      if (map.current) {
-        map.current.remove();
-      }
-    };
+    fetchCameras();
   }, []);
 
   /**
-   * Add camera markers to the map with status-based styling
+   * Refresh camera data
    */
-  const addCameraMarkers = () => {
-    if (!map.current) return;
-
-    cameras.forEach((camera) => {
-      const el = document.createElement('div');
-      el.className = 'camera-marker';
-      el.style.width = '40px';
-      el.style.height = '40px';
-      el.style.borderRadius = '50%';
-      el.style.display = 'flex';
-      el.style.alignItems = 'center';
-      el.style.justifyContent = 'center';
-      el.style.cursor = 'pointer';
-      el.style.border = '3px solid white';
-      el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-      
-      // Set marker color based on camera status
-      if (camera.status === 'online') {
-        el.style.backgroundColor = '#4caf50';
-      } else if (camera.status === 'offline') {
-        el.style.backgroundColor = '#f44336';
-      } else {
-        el.style.backgroundColor = '#ff9800';
-      }
-
-      el.innerHTML = `<svg width="20" height="20" fill="white"><path d="M17 10.5V7c0-.55-.45-1-1-1H4c-.55 0-1 .45-1 1v10c0 .55.45 1 1 1h12c.55 0 1-.45 1-1v-3.5l4 4v-11l-4 4z"/></svg>`;
-      
-      el.addEventListener('click', () => {
-        setSelectedCamera(camera);
-      });
-
-      new mapboxgl.Marker(el)
-        .setLngLat(camera.location.coordinates)
-        .addTo(map.current!);
-
-      // Add hover popup
-      const popup = new mapboxgl.Popup({
-        offset: 25,
-        closeButton: false,
-        className: 'camera-popup'
-      }).setHTML(`
-        <div style="padding: 8px;">
-          <h4 style="margin: 0 0 4px 0; font-size: 14px;">${camera.name}</h4>
-          <p style="margin: 0; font-size: 12px; color: #666;">
-            Status: <span style="color: ${camera.status === 'online' ? '#4caf50' : '#f44336'};">${camera.status}</span>
-          </p>
-          ${camera.activeEvents > 0 ? `<p style="margin: 4px 0 0 0; font-size: 12px; color: #f44336;">${camera.activeEvents} active events</p>` : ''}
-        </div>
-      `);
-
-      el.addEventListener('mouseenter', () => {
-        popup.setLngLat(camera.location.coordinates).addTo(map.current!);
-      });
-      
-      el.addEventListener('mouseleave', () => {
-        popup.remove();
-      });
-    });
-  };
-
-  /**
-   * Add event markers to the map with severity-based styling
-   */
-  const addEventMarkers = () => {
-    if (!map.current) return;
-
-    events.forEach((event) => {
-      const el = document.createElement('div');
-      el.className = 'event-marker';
-      el.style.width = '30px';
-      el.style.height = '30px';
-      el.style.borderRadius = '50%';
-      el.style.display = 'flex';
-      el.style.alignItems = 'center';
-      el.style.justifyContent = 'center';
-      el.style.cursor = 'pointer';
-      el.style.border = '2px solid white';
-      el.style.boxShadow = '0 2px 8px rgba(0,0,0,0.3)';
-      el.style.animation = 'pulse 2s infinite';
-      
-      const severityColors = {
-        low: '#4caf50',
-        medium: '#ff9800',
-        high: '#f44336',
-        critical: '#9c27b0',
-      };
-      
-      el.style.backgroundColor = severityColors[event.severity];
-      el.innerHTML = '<svg width="16" height="16" fill="white"><path d="M1 21h22L12 2 1 21zm12-3h-2v-2h2v2zm0-4h-2v-4h2v4z"/></svg>';
-
-      new mapboxgl.Marker(el)
-        .setLngLat(event.location)
-        .addTo(map.current!);
-
-      // Add click popup
-      const popup = new mapboxgl.Popup({
-        offset: 25,
-        closeButton: false,
-      }).setHTML(`
-        <div style="padding: 8px;">
-          <h4 style="margin: 0 0 4px 0; font-size: 14px;">${event.type}</h4>
-          <p style="margin: 0; font-size: 12px; color: #666;">
-            Severity: <span style="color: ${severityColors[event.severity]};">${event.severity}</span>
-          </p>
-          <p style="margin: 4px 0 0 0; font-size: 12px; color: #666;">${event.timestamp}</p>
-        </div>
-      `);
-
-      el.addEventListener('click', () => {
-        popup.setLngLat(event.location).addTo(map.current!);
-      });
-    });
-  };
-
-  /**
-   * Center the map on the default location
-   */
-  const centerOnLocation = () => {
-    if (!map.current) return;
-    map.current.flyTo({
-      center: [-74.0060, 40.7128],
-      zoom: 15,
-      duration: 1000,
-    });
-  };
-
-  /**
-   * Toggle fullscreen mode
-   */
-  const toggleFullscreen = () => {
-    if (!map.current) return;
-    
-    if (!document.fullscreenElement) {
-      mapContainer.current?.requestFullscreen();
-    } else {
-      document.exitFullscreen();
-    }
+  const handleRefresh = () => {
+    fetchCameras();
   };
 
   return (
@@ -299,12 +191,22 @@ const MapView: React.FC = () => {
             Interactive Map
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
-            Real-time view of cameras and security events.
+            Real-time view of {cameras.length} cameras using OpenStreetMap.
           </Typography>
         </Box>
         
-        {/* Layer Toggle Controls */}
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        {/* Controls */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Button
+            variant="outlined"
+            startIcon={<RefreshIcon />}
+            onClick={handleRefresh}
+            disabled={loading}
+            size="small"
+          >
+            Refresh
+          </Button>
+          
           <FormControlLabel
             control={
               <Switch
@@ -315,126 +217,97 @@ const MapView: React.FC = () => {
             }
             label="Cameras"
           />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showEvents}
-                onChange={(e) => setShowEvents(e.target.checked)}
-                color="error"
-              />
-            }
-            label="Events"
-          />
         </Box>
       </Box>
 
       {/* Map Container */}
       <Paper 
+        elevation={3}
         sx={{ 
-          height: 'calc(100vh - 200px)', 
           position: 'relative',
+          height: 'calc(100vh - 200px)',
           overflow: 'hidden',
-          borderRadius: 2,
+          borderRadius: 2
         }}
       >
-        <div ref={mapContainer} style={{ width: '100%', height: '100%' }} />
-        
-        {/* Map Control Buttons */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 16,
-            right: 16,
-            display: 'flex',
-            flexDirection: 'column',
-            gap: 1,
-          }}
-        >
-          <Tooltip title="Center Map">
-            <IconButton
-              onClick={centerOnLocation}
-              sx={{
-                bgcolor: 'white',
-                boxShadow: 2,
-                '&:hover': { bgcolor: 'grey.100' },
-              }}
-            >
-              <MyLocationIcon />
-            </IconButton>
-          </Tooltip>
-          
-          <Tooltip title="Toggle Layers">
-            <IconButton
-              onClick={() => setShowLayers(true)}
-              sx={{
-                bgcolor: 'white',
-                boxShadow: 2,
-                '&:hover': { bgcolor: 'grey.100' },
-              }}
-            >
-              <LayersIcon />
-            </IconButton>
-          </Tooltip>
-          
-          <Tooltip title="Fullscreen">
-            <IconButton
-              onClick={toggleFullscreen}
-              sx={{
-                bgcolor: 'white',
-                boxShadow: 2,
-                '&:hover': { bgcolor: 'grey.100' },
-              }}
-            >
-              <FullscreenIcon />
-            </IconButton>
-          </Tooltip>
-        </Box>
-
-        {/* Map Legend */}
-        <Paper
-          sx={{
-            position: 'absolute',
-            bottom: 16,
-            left: 16,
-            p: 2,
-            bgcolor: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          <Typography variant="subtitle2" gutterBottom>
-            Legend
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box
-                sx={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  bgcolor: '#4caf50',
-                  border: '2px solid white',
-                }}
-              />
-              <Typography variant="caption">Online Camera</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Box
-                sx={{
-                  width: 16,
-                  height: 16,
-                  borderRadius: '50%',
-                  bgcolor: '#f44336',
-                  border: '2px solid white',
-                }}
-              />
-              <Typography variant="caption">Offline Camera</Typography>
-            </Box>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <WarningIcon sx={{ fontSize: 16, color: '#ff9800' }} />
-              <Typography variant="caption">Active Event</Typography>
-            </Box>
+        {loading && (
+          <Box
+            sx={{
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 1000,
+            }}
+          >
+            <CircularProgress size={60} />
           </Box>
-        </Paper>
+        )}
+        
+        <MapContainer
+          center={[40.7128, -74.0060]}
+          zoom={13}
+          style={{ height: '100%', width: '100%' }}
+          zoomControl={true}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
+          
+          {showCameras && cameras.map((camera) => (
+            <Marker
+              key={camera._id}
+              position={[camera.location.coordinates[1], camera.location.coordinates[0]]}
+              icon={createCameraIcon(camera.status)}
+              eventHandlers={{
+                click: () => setSelectedCamera(camera)
+              }}
+            >
+              <Popup>
+                <Box sx={{ minWidth: 200 }}>
+                  <Typography variant="h6" gutterBottom>
+                    {camera.name}
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <Typography variant="body2">
+                      <strong>Status:</strong>
+                    </Typography>
+                    <Chip
+                      label={camera.status}
+                      color={camera.status === 'online' ? 'success' : 'error'}
+                      size="small"
+                    />
+                  </Box>
+                  {camera.description && (
+                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                      {camera.description}
+                    </Typography>
+                  )}
+                  <Typography variant="caption" display="block" gutterBottom>
+                    {camera.location.address || 'No address specified'}
+                  </Typography>
+                  <Typography variant="caption" display="block" gutterBottom>
+                    Resolution: {camera.settings.resolution} • FPS: {camera.settings.fps}
+                  </Typography>
+                  <Button 
+                    size="small" 
+                    variant="contained"
+                    onClick={() => setSelectedCamera(camera)}
+                    sx={{ mt: 1 }}
+                  >
+                    View Details
+                  </Button>
+                </Box>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
       </Paper>
 
       {/* Camera Details Dialog */}
@@ -457,72 +330,64 @@ const MapView: React.FC = () => {
               </Box>
             </DialogTitle>
             <DialogContent>
-              <Box sx={{ minWidth: 400, p: 2 }}>
+              <Box sx={{ minWidth: 400 }}>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Location:</strong> {selectedCamera.location.address}
+                  <strong>Type:</strong> {selectedCamera.type.toUpperCase()} Camera
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Status:</strong> {selectedCamera.status}
+                  <strong>Resolution:</strong> {selectedCamera.settings.resolution}
                 </Typography>
                 <Typography variant="body2" gutterBottom>
-                  <strong>Active Events:</strong> {selectedCamera.activeEvents}
+                  <strong>FPS:</strong> {selectedCamera.settings.fps}
                 </Typography>
-                
-                <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
-                  <Button variant="contained" size="small">
-                    View Live Stream
-                  </Button>
-                  <Button variant="outlined" size="small">
-                    Camera Settings
-                  </Button>
-                </Box>
+                <Typography variant="body2" gutterBottom>
+                  <strong>Recording:</strong> {selectedCamera.settings.recordingEnabled ? 'Enabled' : 'Disabled'}
+                </Typography>
+                <Typography variant="body2" gutterBottom>
+                  <strong>Location:</strong> {selectedCamera.location.address || 'No address'}
+                </Typography>
+                <Typography variant="body2" gutterBottom>
+                  <strong>Coordinates:</strong> {selectedCamera.location.coordinates[1].toFixed(6)}, {selectedCamera.location.coordinates[0].toFixed(6)}
+                </Typography>
+                <Typography variant="body2" gutterBottom>
+                  <strong>Stream URL:</strong>
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontFamily: 'monospace', 
+                    fontSize: '0.75rem',
+                    wordBreak: 'break-all',
+                    color: 'text.secondary',
+                    bgcolor: 'grey.100',
+                    p: 1,
+                    borderRadius: 1
+                  }}
+                >
+                  {selectedCamera.streamUrl}
+                </Typography>
               </Box>
             </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setSelectedCamera(null)}>Close</Button>
+              <Button variant="contained" color="primary">
+                View Live Stream
+              </Button>
+            </DialogActions>
           </>
         )}
       </Dialog>
 
-      {/* Map Layers Dialog */}
-      <Dialog open={showLayers} onClose={() => setShowLayers(false)}>
-        <DialogTitle>Map Layers</DialogTitle>
-        <DialogContent>
-          <Box sx={{ minWidth: 250, p: 1 }}>
-            <FormControlLabel
-              control={<Switch checked={showCameras} onChange={(e) => setShowCameras(e.target.checked)} />}
-              label="Security Cameras"
-            />
-            <FormControlLabel
-              control={<Switch checked={showEvents} onChange={(e) => setShowEvents(e.target.checked)} />}
-              label="Active Events"
-            />
-            <FormControlLabel
-              control={<Switch checked={true} />}
-              label="Detection Zones"
-            />
-            <FormControlLabel
-              control={<Switch checked={false} />}
-              label="Heat Map"
-            />
-          </Box>
-        </DialogContent>
-      </Dialog>
-
-      {/* Custom CSS Styles */}
+      {/* Custom CSS for camera markers */}
       <style>{`
-        @keyframes pulse {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.1); opacity: 0.8; }
-          100% { transform: scale(1); opacity: 1; }
+        .custom-camera-marker {
+          background: transparent !important;
+          border: none !important;
         }
         
-        .camera-marker:hover {
+        .custom-camera-marker:hover {
           transform: scale(1.1);
           transition: transform 0.2s ease;
-        }
-        
-        .mapboxgl-popup-content {
-          padding: 0 !important;
-          border-radius: 8px !important;
         }
       `}</style>
     </Box>
