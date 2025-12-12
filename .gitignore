@@ -1,0 +1,314 @@
+# Event Monitoring MVP - Git Ignore File
+# This file tells Git which files and folders to ignore (not track in version control)
+
+# =============================================================================
+# NODE.JS & NPM DEPENDENCIES
+# =============================================================================
+# Node.js modules are downloaded from npm - we don't need to store them in Git
+# They can be reinstalled using "npm install"
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Package lock files (only commit one type)
+# We use npm, so we ignore yarn.lock
+yarn.lock
+package-lock.json
+
+# =============================================================================
+# ENVIRONMENT VARIABLES & SECRETS
+# =============================================================================
+# These files contain sensitive information like API keys and passwords
+# NEVER commit these to version control for security reasons
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.staging
+
+# Configuration files with secrets
+config/secrets.json
+config/local.json
+.secrets/
+
+# =============================================================================
+# BUILD OUTPUT & COMPILED FILES
+# =============================================================================
+# These are generated automatically and shouldn't be in version control
+# Frontend build output
+frontend/build/
+frontend/dist/
+
+# Backend compiled TypeScript
+backend/dist/
+backend/build/
+
+# Coverage reports from testing
+coverage/
+*.lcov
+.nyc_output
+
+# =============================================================================
+# DATABASE FILES
+# =============================================================================
+# Local database files - production databases are separate
+*.db
+*.sqlite
+*.sqlite3
+
+# MongoDB local data directory
+data/db/
+mongo-data/
+
+# Database dumps (usually too large for Git)
+*.sql
+*.dump
+
+# =============================================================================
+# LOGS & TEMPORARY FILES
+# =============================================================================
+# Log files can get very large and change constantly
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Runtime data
+pids/
+*.pid
+*.seed
+*.pid.lock
+
+# Temporary folders
+.tmp/
+temp/
+tmp/
+
+# =============================================================================
+# PYTHON & AI SERVICE FILES
+# =============================================================================
+# Python compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Python virtual environments (created with "python -m venv")
+venv/
+env/
+ENV/
+.venv/
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# AI model files (these are usually large and downloaded separately)
+ai-service/models/*.pt
+ai-service/models/*.pth
+ai-service/models/*.onnx
+ai-service/models/*.h5
+ai-service/models/*.pb
+
+# Python distribution / packaging
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# =============================================================================
+# DOCKER FILES
+# =============================================================================
+# Docker build context and temporary files
+.docker/
+docker-compose.override.yml
+
+# =============================================================================
+# IDE & EDITOR FILES
+# =============================================================================
+# Visual Studio Code settings (some developers prefer to keep these local)
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+
+# WebStorm/IntelliJ
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+
+# =============================================================================
+# OPERATING SYSTEM FILES
+# =============================================================================
+# macOS system files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Icon?
+
+# Windows system files
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Linux
+*~
+.nfs*
+
+# =============================================================================
+# DEVELOPMENT & TESTING
+# =============================================================================
+# Test coverage reports
+coverage/
+.coverage
+htmlcov/
+.tox/
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+
+# ESLint cache
+.eslintcache
+
+# Optional REPL history
+.node_repl_history
+
+# =============================================================================
+# DEPLOYMENT & PRODUCTION
+# =============================================================================
+# SSL certificates and keys
+*.pem
+*.key
+*.crt
+*.csr
+
+# Deployment scripts with sensitive information
+deploy-config.json
+.deployment/
+
+# =============================================================================
+# BACKUP & ARCHIVE FILES
+# =============================================================================
+# Backup files
+*.bak
+*.backup
+*.old
+
+# Archive files
+*.zip
+*.tar.gz
+*.rar
+
+# =============================================================================
+# PROJECT-SPECIFIC IGNORES
+# =============================================================================
+# Camera stream recordings (these can be very large)
+recordings/
+*.mp4
+*.avi
+*.mov
+
+# Event snapshots and images
+uploads/
+snapshots/
+event-images/
+
+# Performance and monitoring data
+monitoring/
+metrics/
+performance-logs/
+
+# =============================================================================
+# DOCUMENTATION BUILD OUTPUT
+# =============================================================================
+# Generated documentation
+docs/_build/
+docs/.doctrees/
+
+# =============================================================================
+# DEPENDENCY DIRECTORIES
+# =============================================================================
+# Bower (if used for frontend dependencies)
+bower_components/
+
+# TypeScript cache
+*.tsbuildinfo
+
+# Optional npm cache directory
+.npm
+
+# Optional eslint cache
+.eslintcache
+
+# Microbundle cache
+.rpt2_cache/
+.rts2_cache_cjs/
+.rts2_cache_es/
+.rts2_cache_umd/
+
+# Optional REPL history
+.node_repl_history
+
+# Output of 'npm pack'
+*.tgz
+
+# Yarn Integrity file
+.yarn-integrity
+
+# =============================================================================
+# CUSTOM PROJECT IGNORES
+# =============================================================================
+# Add any project-specific ignores here
+# Example: vendor-specific files, custom build outputs, etc.
+
+# Local development notes (developers' personal notes)
+NOTES.md
+TODO.md
+.notes/
+
+# Local development database exports
+dev-data-export.*
+
+# Performance testing results
+load-test-results/
+
+# Security scan results
+security-reports/

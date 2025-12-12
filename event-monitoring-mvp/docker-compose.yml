@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  # MongoDB Database
+  mongodb:
+    image: mongo:6.0
+    container_name: event-monitoring-mongodb
+    restart: always
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: admin
+      MONGO_INITDB_ROOT_PASSWORD: password123
+      MONGO_INITDB_DATABASE: event_monitoring
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+      - ./docker/mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js:ro
+    networks:
+      - event-monitoring-network
+
+  # Backend API
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: event-monitoring-backend
+    restart: always
+    environment:
+      NODE_ENV: development
+      PORT: 5000
+      MONGODB_URI: mongodb://admin:password123@mongodb:27017/event_monitoring?authSource=admin
+      JWT_SECRET: your-super-secret-jwt-key-change-in-production
+      AI_SERVICE_URL: http://ai-service:8000
+    ports:
+      - "5000:5000"
+    depends_on:
+      - mongodb
+    networks:
+      - event-monitoring-network
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+
+  # Frontend React App
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: event-monitoring-frontend
+    restart: always
+    environment:
+      REACT_APP_API_URL: http://localhost:5000/api
+      REACT_APP_MAPBOX_TOKEN: your-mapbox-token-here
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - event-monitoring-network
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+
+  # AI Service
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: event-monitoring-ai
+    restart: always
+    environment:
+      PYTHONUNBUFFERED: 1
+      API_URL: http://backend:5000/api
+      MODEL_PATH: /app/models
+    ports:
+      - "8000:8000"
+    depends_on:
+      - backend
+    networks:
+      - event-monitoring-network
+    volumes:
+      - ./ai-service:/app
+      - ai_models:/app/models
+
+volumes:
+  mongodb_data:
+  ai_models:
+
+networks:
+  event-monitoring-network:
+    driver: bridge

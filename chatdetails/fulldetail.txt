@@ -1,0 +1,664 @@
+Here’s a full, self-contained explanation you can copy into a text file and give to another agent.
+I’ll write it as if it’s a **project spec + context document**.
+
+---
+
+## 1. Project Overview
+
+We are building an **Event Monitoring and Management Platform** that combines:
+
+* **Live video streams** from cameras (IP, VMS, security cameras, etc.)
+* **AI-based video analytics** to detect people, vehicles, suspicious behavior, and other anomalies
+* **A GIS map** that visualizes cameras and events in their geographic context
+* **An event management system** that logs, classifies, prioritizes, and tracks incidents
+* **Dashboards and KPIs** for operators and managers
+* **Integrations** with external systems (VMS, GIS providers, IoT devices, and emergency dispatch/CAD)
+
+The platform is intended for **real-time monitoring of environmental/safety/security events**, for example:
+
+* Smart cities and municipalities
+* Critical infrastructure (ports, industrial sites, campuses)
+* Security operation centers (SOC)
+* Public safety monitoring
+
+The system will eventually support **real-time operations** (live view and alerts) **and offline analysis** (history, trends, reports).
+
+---
+
+## 2. High-Level Goals
+
+1. **Real-time situational awareness**
+   Combine video, map, and events in a unified view so operators can quickly understand what is happening, where, and how severe it is.
+
+2. **AI-assisted detection and decision support**
+   Use AI to automatically detect relevant events (e.g., person detected in restricted area, abandoned object, suspicious motion, specific vehicles), create events, and support prioritization.
+
+3. **Efficient event lifecycle management**
+   Allow operators to review, classify, prioritize, and resolve events, and to maintain a full history for investigation and analysis.
+
+4. **Scalable integration with external systems**
+   Integrate with:
+
+   * Existing VMS (Video Management Systems)
+   * IoT sensors
+   * GIS data sources
+   * Emergency response systems (CAD)
+
+5. **Reporting and insights**
+   Provide dashboards and reports for management: trends over time, hotspots, repeated issues, response metrics, etc.
+
+---
+
+## 3. Target Users and Primary Use Cases
+
+### Target Users
+
+* **Control room operators / SOC operators**
+  Need to view live events, video, and map, and respond quickly.
+* **Security managers / supervisors**
+  Need higher-level summaries, trends, and reports.
+* **System admins**
+  Manage cameras, users, roles, and integrations.
+
+### Key Use Cases
+
+* Operator monitors live video and map, sees incoming AI-generated events, and decides how to respond.
+* System detects an anomaly on video (e.g., person in restricted zone), automatically creates an event, and visualizes it on the map.
+* Operator filters events by type, time, or area, and reviews history for investigations.
+* Manager exports monthly reports on events by type, location, and severity.
+
+---
+
+## 4. System Components (Full Vision)
+
+Below is the full vision of the system, broken down by modules. Later, we will define what the **MVP** includes and what is **phase 2+**.
+
+### 4.1 Video Intelligence
+
+* **Video source connectivity**
+
+  * Connect to IP cameras, VMS systems, or video streams (RTSP, HLS, WebRTC, etc.).
+  * Handle live streams and access historical recordings.
+
+* **Live video viewing**
+
+  * Live video in the web UI from multiple cameras.
+  * Camera selection, switching, possibly grid view (2x2, 3x3).
+
+* **Playback of recorded footage**
+
+  * Timeline-based playback for each camera.
+  * Jump to a specific time (often linked to an event).
+
+* **AI video analytics**
+
+  * Anomaly detection in video streams.
+  * Specific AI tasks:
+
+    * Suspicious motion detection
+    * Abandoned objects
+    * Person detection / people counting
+    * Vehicle detection and classification
+    * License Plate Recognition (LPR)
+    * Face detection and recognition
+  * Generate structured detections (what, when, where, confidence).
+
+* **Event triggering from video**
+
+  * When certain AI detections meet rules/thresholds, an **event** is created automatically, linked to camera & time.
+
+* **Smart video search**
+
+  * Search for relevant segments by:
+
+    * Time range
+    * Object type (person/vehicle)
+    * Event type (e.g., “intrusion”, “abandoned object”)
+  * Use detection metadata to avoid scanning raw video manually.
+
+---
+
+### 4.2 GIS and Map Module
+
+* **Interactive base map**
+
+  * Integrate with a GIS provider (Google Maps, Mapbox, ArcGIS, etc.).
+  * Show background map with layers (zones, areas of interest, etc.).
+  * Show camera locations as markers.
+
+* **Events on map**
+
+  * Show active events at their GPS location.
+  * Different icons/colors by event type or severity.
+
+* **Historical locations / tracking**
+
+  * For moving objects (vehicles, persons, assets), show historical paths over time.
+
+* **Search and navigation**
+
+  * Search by address, site name, or GPS coordinates.
+  * Center map on specific camera or event.
+
+* **Geofencing**
+
+  * Define zones (polygons, circles).
+  * Trigger rules when:
+
+    * Something enters a zone
+    * Leaves a zone
+    * Stays too long in a zone
+
+---
+
+### 4.3 Event Management
+
+* **Automatic event creation**
+
+  * Events created based on AI detections or sensor triggers.
+  * Each event includes:
+
+    * Time
+    * Camera/source
+    * Location
+    * Type
+    * Possibly snapshot image or video clip.
+
+* **Event classification and categories**
+
+  * Predefined categories: e.g., “intrusion”, “suspicious behavior”, “abandoned object”, “vehicle anomaly”, etc.
+  * Possibly allow custom categories.
+
+* **Event lifecycle**
+
+  * States like:
+
+    * New
+    * In progress
+    * Resolved
+    * Closed
+  * Optionally assign events to users/teams.
+
+* **Prioritization**
+
+  * Severity or priority levels (e.g., Low/Medium/High, or numeric).
+  * Rules for auto-priority based on type, location, and time.
+
+* **Notifications**
+
+  * Send alerts when new or high-severity events occur:
+
+    * Push notifications
+    * Email
+    * SMS
+    * Possibly integration to other channels later.
+
+* **Logs and audit trail**
+
+  * Store full history of events and all changes.
+  * Who handled which event, when, and what actions they took.
+
+---
+
+### 4.4 AI & Analytics
+
+* **Real-time AI**
+
+  * AI models applied on live streams for:
+
+    * Object detection
+    * Intrusion/behavior detection
+    * Face or LPR if required
+  * Output detection events and metadata.
+
+* **Event classification**
+
+  * AI or rule-based classification of events.
+
+* **Trend / pattern analysis**
+
+  * Analyze historical events for:
+
+    * Hotspots on map
+    * Frequent event types
+    * Time-of-day patterns
+
+* **Smart reporting**
+
+  * Generate analytical reports based on repeated patterns and trends.
+
+---
+
+### 4.5 Integrations & External Systems
+
+* **VMS integration**
+
+  * Consume streams and/or metadata from an existing video management system.
+
+* **IoT & sensors**
+
+  * Integrate with sensors (e.g., motion sensors, panic buttons, door sensors).
+  * Combine sensor inputs with video-based detections.
+
+* **GIS data integration**
+
+  * Import existing GIS layers (zones, assets, infrastructure).
+
+* **Emergency/CAD systems**
+
+  * Push critical events to emergency dispatch or CAD systems.
+
+---
+
+### 4.6 User Interface (Frontend)
+
+* **Dashboard**
+
+  * Overview page:
+
+    * Active events
+    * Live video
+    * Map
+    * Basic KPIs
+
+* **Event view**
+
+  * List of events (filter, sort, search).
+  * Event details page (video snapshot, map location, metadata).
+
+* **Video view**
+
+  * Live video + controls.
+  * Optionally multi-camera views.
+
+* **Map view**
+
+  * Map with cameras and events.
+  * Filters by time, type, severity.
+
+* **Timeline view**
+
+  * Historical navigation of events and video.
+
+* **Responsive design**
+
+  * Desktop first, with support for tablets and possibly mobile.
+
+* **RBAC (Role-Based Access Control)**
+
+  * Different screens and permissions for admins/operators/viewers.
+
+---
+
+### 4.7 Security, Infrastructure, and Reporting
+
+* **Security**
+
+  * Authentication (JWT, possibly OAuth2 or SSO).
+  * Authorization (roles/permissions).
+  * Encryption in transit (HTTPS/TLS) and possibly at rest.
+  * Audit logs of user actions.
+
+* **Deployment**
+
+  * Cloud and/or on-premise support.
+  * Potential containers (Docker), orchestration later (Kubernetes).
+
+* **Data retention**
+
+  * Policies for video storage duration.
+  * Policies for event/log retention.
+
+* **Reports & export**
+
+  * Export events and metrics as CSV or PDF.
+  * Configurable periodic reports (monthly, quarterly).
+  * Filtering by user, area, event type, etc.
+
+---
+
+## 5. MVP vs Full Project
+
+Below is how the MVP (Minimum Viable Product) differs from the full system.
+
+### 5.1 MVP – What We Include First
+
+**Goal of MVP:**
+A working vertical slice that shows the core value:
+
+* Live video
+* AI detection
+* Automatic event creation
+* Map visualization
+* Basic event management
+* Basic authentication
+
+**MVP Feature Set:**
+
+1. **Video**
+
+   * Connect to a **small number of cameras** (e.g., 1–5).
+   * Show **live video** from those cameras in the web UI.
+   * (Optional but nice) Simple playback from either:
+
+     * VMS API, or
+     * Stored short clips.
+
+2. **AI Detection (Single Model)**
+
+   * Focus on **one AI capability** only for MVP, such as:
+
+     * Person/vehicle detection (recommended)
+   * For each detection:
+
+     * Create an event with timestamp, camera, and type.
+
+3. **Basic Event Management**
+
+   * Store events in a database (e.g., MongoDB).
+   * Show event list in the UI with:
+
+     * time
+     * camera
+     * event type
+   * Event details:
+
+     * Basic metadata
+     * Optional snapshot
+   * Simple status:
+
+     * New
+     * (Optionally) Resolved
+
+4. **Map Integration**
+
+   * Use a simple map provider.
+   * Show camera locations.
+   * Highlight cameras with active events.
+
+5. **Dashboard / UI**
+
+   * Main screen with:
+
+     * Live video
+     * Event list
+     * Map tab or section
+   * Simple navigation:
+
+     * Login
+     * Dashboard
+     * Events
+     * Map
+
+6. **Authentication**
+
+   * Basic login with username/password.
+   * Single role or simple distinction (admin vs operator).
+   * JWT-based sessions.
+
+7. **Backend & Architecture**
+
+   * React frontend.
+   * Node.js + Express backend API.
+   * MongoDB for:
+
+     * Users
+     * Cameras
+     * Events
+   * AI service as a separate component/microservice:
+
+     * Receives video frames/stream reference.
+     * Runs the detection model.
+     * Sends detection results to the backend.
+
+8. **Non-functional (MVP)**
+
+   * Not highly optimized.
+   * Work with a limited number of streams.
+   * Focus on **correctness and demonstrability**, not scale.
+
+---
+
+### 5.2 Full Project – Later Phases (Beyond MVP)
+
+Later phases can add:
+
+* Multiple AI models:
+
+  * LPR
+  * Face recognition
+  * Abandoned objects
+  * Behavioral anomalies
+* Complex event lifecycle:
+
+  * Assignment
+  * Collaboration
+  * Escalation
+* Full RBAC and SSO integration.
+* Advanced GIS / geofencing / historical tracking.
+* Alert channels (SMS, email, push).
+* CAD integration and IoT/sensor integrations.
+* Sophisticated reports, export, and trend analyses.
+* Performance and scalability enhancements:
+
+  * Distributed processing
+  * High availability
+  * Load balancing
+
+---
+
+## 6. Open Questions That Are Still Not Fully Answered
+
+Below is a list of **open-ended questions** that should be clarified with the company. These directly affect architecture and MVP scope.
+
+### 6.1 Video & VMS
+
+1. **Video source details**
+
+   * What protocols are used? (RTSP, HLS, WebRTC, ONVIF, proprietary VMS)
+   * Are we connecting directly to cameras, or to a VMS?
+
+2. **Storage**
+
+   * Who is responsible for storing video?
+
+     * Our platform?
+     * The existing VMS?
+   * Do we need our own archive in MVP, or is it okay to rely on VMS for playback?
+
+3. **Scale**
+
+   * How many cameras must the MVP support?
+   * How many simultaneous live streams will operators view?
+
+4. **Latency**
+
+   * What is the acceptable delay for “live” video?
+
+---
+
+### 6.2 AI & Analytics
+
+1. **Model responsibility**
+
+   * Which AI models are provided by the company?
+   * Which AI models are we expected to implement?
+
+2. **MVP AI choice**
+
+   * Which single AI capability should be prioritized for MVP?
+
+     * Person/vehicle detection?
+     * Something else?
+
+3. **Performance and accuracy**
+
+   * Are there target goals for:
+
+     * False positive rate
+     * False negative rate
+   * Is near-real-time acceptable (e.g., analyzing 1–5 FPS instead of full 25–30 FPS)?
+
+4. **Legal/privacy constraints**
+
+   * Are there limitations on face recognition or LPR in target markets?
+
+---
+
+### 6.3 GIS & Location
+
+1. **Map provider**
+
+   * Which provider should we use? (Google Maps, Mapbox, ArcGIS, etc.)
+   * Are there licensing or organizational preferences?
+
+2. **GIS layers**
+
+   * Does the company already have GIS data or layers we should display?
+
+3. **MVP expectations**
+
+   * For MVP, is it enough to:
+
+     * Show cameras and events on the map?
+   * Or do they already expect:
+
+     * Geofencing?
+     * Historical tracks?
+
+---
+
+### 6.4 Event Management
+
+1. **Event categories**
+
+   * What are the official categories required?
+   * Is this list fixed or configurable?
+
+2. **Event lifecycle**
+
+   * What statuses are expected?
+
+     * New, acknowledged, in progress, resolved, closed?
+   * What is minimally required in MVP?
+
+3. **Rules**
+
+   * Are there predefined rule sets (e.g., “person in restricted zone after 22:00 = high severity”)?
+   * Or is MVP expected to have only simple static rules?
+
+4. **Manual vs automatic events**
+
+   * Can operators manually create events?
+   * Or is MVP purely AI-triggered?
+
+---
+
+### 6.5 Alerts and Notifications
+
+1. **Must alerts be included in MVP?**
+
+   * Or is it enough to show events in the UI without external notifications?
+
+2. **Channels**
+
+   * If alerts are required:
+
+     * Do we need SMS? Email? Push? Web UI only?
+
+3. **Urgency**
+
+   * How fast should alerts be delivered?
+
+---
+
+### 6.6 UI/UX
+
+1. **Primary users for MVP**
+
+   * Are we targeting:
+
+     * Control room operators?
+     * Field users?
+     * Managers?
+
+2. **Priority views**
+
+   * What is the most important screen they expect to see first?
+
+     * Video-focused?
+     * Event-focused?
+     * Map-focused?
+
+3. **Design**
+
+   * Is there an existing design system or branding?
+   * Do they expect dark mode for MVP?
+
+4. **Languages**
+
+   * Must we support multiple languages (e.g., Hebrew + English) in MVP?
+
+---
+
+### 6.7 Security & Deployment
+
+1. **Authentication**
+
+   * Is basic username/password enough for MVP?
+   * Or do they require OAuth2 / SSO already?
+
+2. **Deployment environment**
+
+   * Will MVP be deployed in:
+
+     * Cloud (which provider)?
+     * On-premise at client sites?
+   * Any restrictions on tech choices?
+
+3. **Compliance**
+
+   * Are there specific regulations we must consider from day one? (e.g., GDPR, local privacy laws)
+
+---
+
+### 6.8 Reporting and History
+
+1. **Reports in MVP**
+
+   * Do they expect any form of reporting in MVP (e.g., daily/weekly event summary)?
+   * Or is MVP focused purely on real-time operations?
+
+2. **Export**
+
+   * Is CSV/PDF export required in MVP?
+
+---
+
+## 7. Summary
+
+* The platform is a **real-time AI-powered event monitoring system** combining video, map, and events.
+* The **MVP** focuses on a **small but complete vertical slice**:
+
+  * Live video from a few cameras
+  * A single AI detection model
+  * Automatic event creation
+  * Basic event list and details
+  * Basic map with cameras and event highlighting
+  * Simple authentication and a dashboard
+* The **full project** includes advanced AI, rich GIS capabilities, deeper event workflows, integrations, security hardening, and complex reporting.
+* Several **critical questions remain open**, especially regarding:
+
+  * Video source & storage
+  * Chosen AI model for MVP
+  * GIS provider
+  * Exact event workflow
+  * MVP expectations for alerts and reports
+  * Deployment and security constraints
+
+This document should give enough context for an agent to:
+
+* Generate architecture diagrams
+* Suggest implementation plans
+* Help refine requirements and identify risks
+* Propose data models and API designs for the MVP and beyond.
