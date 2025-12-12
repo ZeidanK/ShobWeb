@@ -18,6 +18,8 @@ import {
   MenuItem,
   useTheme,
   useMediaQuery,
+  Badge,
+  Tooltip,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -25,15 +27,18 @@ import {
   Event as EventIcon,
   Videocam as VideocamIcon,
   LiveTv as LiveTvIcon,
+  Map as MapIcon,
   AccountCircle as AccountCircleIcon,
   Logout as LogoutIcon,
   Settings as SettingsIcon,
+  Notifications as NotificationsIcon,
 } from '@mui/icons-material';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useSelector, useDispatch } from 'react-redux';
 import { RootState, logout, toggleSidebar } from '../../store/store';
 
 const drawerWidth = 280;
+const miniDrawerWidth = 72;
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -50,12 +55,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const { sidebarOpen } = useSelector((state: RootState) => state.ui);
   
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [notificationCount] = useState(3); // Mock notification count
 
   const menuItems = [
     { text: 'Dashboard', icon: <DashboardIcon />, path: '/dashboard' },
     { text: 'Events', icon: <EventIcon />, path: '/events' },
     { text: 'Cameras', icon: <VideocamIcon />, path: '/cameras' },
-    { text: 'Live View', icon: <LiveTvIcon />, path: '/live' },
+    { text: 'Live View', icon: <LiveTvIcon />, path: '/live-view' },
+    { text: 'Map View', icon: <MapIcon />, path: '/map' },
   ];
 
   const handleDrawerToggle = () => {
@@ -86,36 +93,65 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
   const drawer = (
     <Box>
       <Toolbar>
-        <Typography variant="h6" noWrap component="div" sx={{ fontWeight: 'bold' }}>
+        <Typography 
+          variant="h6" 
+          noWrap 
+          component="div" 
+          sx={{ 
+            fontWeight: 'bold',
+            display: sidebarOpen ? 'block' : 'none'
+          }}
+        >
           Event Monitor
         </Typography>
+        {!sidebarOpen && (
+          <Box sx={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
+            <EventIcon sx={{ color: 'primary.main' }} />
+          </Box>
+        )}
       </Toolbar>
       <Divider />
       <List>
         {menuItems.map((item) => (
           <ListItem key={item.text} disablePadding>
-            <ListItemButton
-              selected={location.pathname === item.path}
-              onClick={() => handleNavigate(item.path)}
-              sx={{
-                '&.Mui-selected': {
-                  backgroundColor: theme.palette.primary.light,
-                  '& .MuiListItemIcon-root': {
-                    color: theme.palette.primary.main,
+            <Tooltip title={!sidebarOpen ? item.text : ''} placement="right">
+              <ListItemButton
+                selected={location.pathname === item.path}
+                onClick={() => handleNavigate(item.path)}
+                sx={{
+                  minHeight: 48,
+                  justifyContent: sidebarOpen ? 'initial' : 'center',
+                  px: 2.5,
+                  '&.Mui-selected': {
+                    backgroundColor: theme.palette.primary.light,
+                    '& .MuiListItemIcon-root': {
+                      color: theme.palette.primary.main,
+                    },
+                    '& .MuiListItemText-primary': {
+                      color: theme.palette.primary.main,
+                      fontWeight: 'bold',
+                    },
                   },
-                  '& .MuiListItemText-primary': {
-                    color: theme.palette.primary.main,
-                    fontWeight: 'bold',
+                  '&:hover': {
+                    backgroundColor: theme.palette.action.hover,
                   },
-                },
-                '&:hover': {
-                  backgroundColor: theme.palette.action.hover,
-                },
-              }}
-            >
-              <ListItemIcon>{item.icon}</ListItemIcon>
-              <ListItemText primary={item.text} />
-            </ListItemButton>
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 0,
+                    mr: sidebarOpen ? 3 : 'auto',
+                    justifyContent: 'center',
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.text} 
+                  sx={{ opacity: sidebarOpen ? 1 : 0 }}
+                />
+              </ListItemButton>
+            </Tooltip>
           </ListItem>
         ))}
       </List>
@@ -128,8 +164,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
       <AppBar
         position="fixed"
         sx={{
-          width: { md: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
-          ml: { md: sidebarOpen ? `${drawerWidth}px` : 0 },
+          width: { 
+            xs: '100%', 
+            md: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : `calc(100% - ${miniDrawerWidth}px)` 
+          },
+          ml: { 
+            xs: 0, 
+            md: sidebarOpen ? `${drawerWidth}px` : `${miniDrawerWidth}px` 
+          },
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
@@ -149,7 +191,16 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
           <Typography variant="h6" noWrap component="div" sx={{ flexGrow: 1 }}>
             {menuItems.find(item => item.path === location.pathname)?.text || 'Dashboard'}
           </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <IconButton
+              size="large"
+              aria-label="notifications"
+              color="inherit"
+            >
+              <Badge badgeContent={notificationCount} color="error">
+                <NotificationsIcon />
+              </Badge>
+            </IconButton>
             <IconButton
               size="large"
               aria-label="account of current user"
@@ -184,20 +235,20 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
 
       {/* Desktop drawer */}
       <Drawer
-        variant="persistent"
+        variant="permanent"
         sx={{
           display: { xs: 'none', md: 'block' },
           '& .MuiDrawer-paper': {
             boxSizing: 'border-box',
-            width: drawerWidth,
-            transition: theme.transitions.create('transform', {
+            width: sidebarOpen ? drawerWidth : miniDrawerWidth,
+            transition: theme.transitions.create('width', {
               easing: theme.transitions.easing.sharp,
               duration: theme.transitions.duration.enteringScreen,
             }),
-            transform: sidebarOpen ? 'translateX(0)' : `translateX(-${drawerWidth}px)`,
+            overflowX: 'hidden',
           },
         }}
-        open={sidebarOpen}
+        open
       >
         {drawer}
       </Drawer>
@@ -218,13 +269,13 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         open={Boolean(anchorEl)}
         onClose={handleProfileMenuClose}
       >
-        <MenuItem onClick={handleProfileMenuClose}>
+        <MenuItem onClick={() => { handleProfileMenuClose(); handleNavigate('/profile'); }}>
           <ListItemIcon>
             <AccountCircleIcon fontSize="small" />
           </ListItemIcon>
           Profile
         </MenuItem>
-        <MenuItem onClick={handleProfileMenuClose}>
+        <MenuItem onClick={() => { handleProfileMenuClose(); handleNavigate('/settings'); }}>
           <ListItemIcon>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>
@@ -245,7 +296,14 @@ const Layout: React.FC<LayoutProps> = ({ children }) => {
         sx={{
           flexGrow: 1,
           p: 3,
-          width: { md: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : '100%' },
+          width: { 
+            xs: '100%', 
+            md: sidebarOpen ? `calc(100% - ${drawerWidth}px)` : `calc(100% - ${miniDrawerWidth}px)` 
+          },
+          ml: { 
+            xs: 0, 
+            md: sidebarOpen ? `${drawerWidth}px` : `${miniDrawerWidth}px` 
+          },
           mt: '64px', // AppBar height
           transition: theme.transitions.create(['width', 'margin'], {
             easing: theme.transitions.easing.sharp,

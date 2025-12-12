@@ -8,6 +8,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
 import Cameras from './pages/Cameras';
+import AddCamera from './pages/AddCamera';
 import LiveView from './pages/LiveView';
 import MapView from './pages/MapView';
 import Profile from './pages/Profile';
@@ -53,6 +54,7 @@ const App: React.FC = () => {
         <Route path="/map" element={<MapView />} />
         <Route path="/events" element={<Events />} />
         <Route path="/cameras" element={<Cameras />} />
+        <Route path="/cameras/add" element={<AddCamera />} />
         
         {/* User management routes */}
         <Route path="/profile" element={<Profile />} />

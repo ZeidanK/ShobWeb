@@ -25,8 +25,10 @@ import {
   PlayArrow as PlayArrowIcon,
   Stop as StopIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 const Cameras: React.FC = () => {
+  const navigate = useNavigate();
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState<any>(null);
 
@@ -100,8 +102,7 @@ const Cameras: React.FC = () => {
   };
 
   const handleAddCamera = () => {
-    setSelectedCamera(null);
-    setOpenDialog(true);
+    navigate('/cameras/add');
   };
 
   const handleCloseDialog = () => {

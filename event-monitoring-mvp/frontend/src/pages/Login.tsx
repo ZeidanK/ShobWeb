@@ -9,6 +9,7 @@ import {
   Alert,
   CircularProgress,
   Divider,
+  Link,
 } from '@mui/material';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
@@ -16,7 +17,7 @@ import { useDispatch } from 'react-redux';
 import { loginStart, loginSuccess, loginFailure } from '../store/store';
 import { toast } from 'react-toastify';
 
-// Mock API call - replace with actual API
+// Mock API calls - replace with actual API
 const mockLogin = async (email: string, password: string) => {
   // Simulate API delay
   await new Promise(resolve => setTimeout(resolve, 1000));
@@ -43,7 +44,29 @@ const mockLogin = async (email: string, password: string) => {
   throw new Error('Invalid email or password');
 };
 
-const validationSchema = yup.object({
+const mockRegister = async (username: string, email: string, password: string) => {
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Mock successful registration
+  return {
+    success: true,
+    data: {
+      token: 'mock-jwt-token',
+      user: {
+        _id: Math.random().toString(),
+        username,
+        email,
+        role: 'operator' as const,
+        isActive: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+    }
+  };
+};
+
+const loginValidationSchema = yup.object({
   email: yup
     .string()
     .email('Enter a valid email')
@@ -54,37 +77,68 @@ const validationSchema = yup.object({
     .required('Password is required'),
 });
 
+const registerValidationSchema = yup.object({
+  username: yup
+    .string()
+    .min(3, 'Username should be at least 3 characters')
+    .required('Username is required'),
+  email: yup
+    .string()
+    .email('Enter a valid email')
+    .required('Email is required'),
+  password: yup
+    .string()
+    .min(6, 'Password should be at least 6 characters')
+    .required('Password is required'),
+  confirmPassword: yup
+    .string()
+    .oneOf([yup.ref('password')], 'Passwords must match')
+    .required('Please confirm your password'),
+});
+
 const Login: React.FC = () => {
   const dispatch = useDispatch();
   const [error, setError] = useState<string>('');
+  const [isRegistering, setIsRegistering] = useState<boolean>(false);
 
   const formik = useFormik({
     initialValues: {
+      username: '',
       email: '',
       password: '',
+      confirmPassword: '',
     },
-    validationSchema: validationSchema,
+    validationSchema: isRegistering ? registerValidationSchema : loginValidationSchema,
+    enableReinitialize: true,
     onSubmit: async (values) => {
       try {
         setError('');
         dispatch(loginStart());
         
-        const response = await mockLogin(values.email, values.password);
+        const response = isRegistering 
+          ? await mockRegister(values.username, values.email, values.password)
+          : await mockLogin(values.email, values.password);
         
         if (response.success) {
           dispatch(loginSuccess({
             user: response.data.user,
             token: response.data.token,
           }));
-          toast.success('Login successful!');
+          toast.success(isRegistering ? 'Registration successful!' : 'Login successful!');
         }
       } catch (error: any) {
-        setError(error.message || 'Login failed');
+        setError(error.message || (isRegistering ? 'Registration failed' : 'Login failed'));
         dispatch(loginFailure());
-        toast.error('Login failed');
+        toast.error(isRegistering ? 'Registration failed' : 'Login failed');
       }
     },
   });
+
+  const handleToggleMode = () => {
+    setIsRegistering(!isRegistering);
+    setError('');
+    formik.resetForm();
+  };
 
   return (
     <Box
@@ -125,6 +179,9 @@ const Login: React.FC = () => {
             <Typography variant="h6" color="text.secondary">
               Security Monitoring Platform
             </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+              {isRegistering ? 'Create your account' : 'Sign in to your account'}
+            </Typography>
           </Box>
 
           <Divider sx={{ mb: 3 }} />
@@ -134,6 +191,22 @@ const Login: React.FC = () => {
               <Alert severity="error" sx={{ mb: 2 }}>
                 {error}
               </Alert>
+            )}
+
+            {isRegistering && (
+              <TextField
+                fullWidth
+                id="username"
+                name="username"
+                label="Username"
+                value={formik.values.username}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.touched.username && Boolean(formik.errors.username)}
+                helperText={formik.touched.username && formik.errors.username}
+                margin="normal"
+                variant="outlined"
+              />
             )}
 
             <TextField
@@ -166,6 +239,23 @@ const Login: React.FC = () => {
               variant="outlined"
             />
 
+            {isRegistering && (
+              <TextField
+                fullWidth
+                id="confirmPassword"
+                name="confirmPassword"
+                label="Confirm Password"
+                type="password"
+                value={formik.values.confirmPassword}
+                onChange={formik.handleChange}
+                onBlur={formik.handleBlur}
+                error={formik.touched.confirmPassword && Boolean(formik.errors.confirmPassword)}
+                helperText={formik.touched.confirmPassword && formik.errors.confirmPassword}
+                margin="normal"
+                variant="outlined"
+              />
+            )}
+
             <Button
               color="primary"
               variant="contained"
@@ -187,9 +277,33 @@ const Login: React.FC = () => {
               {formik.isSubmitting ? (
                 <CircularProgress size={24} color="inherit" />
               ) : (
-                'Sign In'
+                isRegistering ? 'Create Account' : 'Sign In'
               )}
             </Button>
+
+            <Box sx={{ textAlign: 'center', mt: 2 }}>
+              <Typography variant="body2">
+                {isRegistering ? 'Already have an account?' : "Don't have an account?"}{' '}
+                <Link
+                  component="button"
+                  variant="body2"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleToggleMode();
+                  }}
+                  sx={{
+                    color: 'primary.main',
+                    textDecoration: 'none',
+                    fontWeight: 'bold',
+                    '&:hover': {
+                      textDecoration: 'underline',
+                    },
+                  }}
+                >
+                  {isRegistering ? 'Sign in here' : 'Register here'}
+                </Link>
+              </Typography>
+            </Box>
           </Box>
 
           <Divider sx={{ my: 3 }} />
