@@ -30,11 +30,45 @@ import {
   Settings as SettingsIcon,
   Cable as TestIcon,
   Save as SaveIcon,
+  Map as MapIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { toast } from 'react-toastify';
+import {
+  MapContainer,
+  TileLayer,
+  Marker,
+  Popup,
+} from 'react-leaflet';
+import L from 'leaflet';
+import 'leaflet/dist/leaflet.css';
+
+// Fix for default markers in react-leaflet
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon-2x.png',
+  iconUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-icon.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.7.1/images/marker-shadow.png',
+});
+
+// Create custom camera preview icon
+const createCameraPreviewIcon = () => {
+  const svgIcon = `
+    <svg width="40" height="40" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="20" cy="20" r="18" fill="#2196f3" stroke="white" stroke-width="3"/>
+      <path d="M12 14h8v6h-8z M20 17l4-2v6l-4-2z" fill="white"/>
+    </svg>
+  `;
+
+  return L.divIcon({
+    html: svgIcon,
+    className: 'custom-camera-preview-marker',
+    iconSize: [40, 40],
+    iconAnchor: [20, 20],
+  });
+};
 
 const steps = ['Basic Information', 'Connection Settings', 'Location & Configuration'];
 
@@ -86,6 +120,7 @@ const AddCamera: React.FC = () => {
   const [activeStep, setActiveStep] = useState(0);
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [showMapPreview, setShowMapPreview] = useState(false);
 
   const formik = useFormik({
     initialValues: {
@@ -175,6 +210,9 @@ const AddCamera: React.FC = () => {
 
       formik.setFieldValue('latitude', parseFloat(mockCoordinates.lat.toFixed(6)));
       formik.setFieldValue('longitude', parseFloat(mockCoordinates.lng.toFixed(6)));
+      
+      // Automatically show map preview when coordinates are obtained
+      setShowMapPreview(true);
       
       toast.success('Coordinates updated from address');
     } catch (error) {
@@ -333,6 +371,24 @@ const AddCamera: React.FC = () => {
                 </Button>
               </Box>
             </Grid>
+            
+            {/* Coordinate Input with Map Preview */}
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2">
+                  Camera Coordinates
+                </Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<MapIcon />}
+                  onClick={() => setShowMapPreview(!showMapPreview)}
+                  size="small"
+                >
+                  {showMapPreview ? 'Hide' : 'Show'} Map Preview
+                </Button>
+              </Box>
+            </Grid>
+            
             <Grid item xs={6}>
               <TextField
                 fullWidth
@@ -341,7 +397,12 @@ const AddCamera: React.FC = () => {
                 label="Latitude"
                 type="number"
                 value={formik.values.latitude}
-                onChange={formik.handleChange}
+                onChange={(e) => {
+                  formik.handleChange(e);
+                  if (formik.values.longitude !== 0) {
+                    setShowMapPreview(true);
+                  }
+                }}
                 onBlur={formik.handleBlur}
                 error={formik.touched.latitude && Boolean(formik.errors.latitude)}
                 helperText={formik.touched.latitude && formik.errors.latitude}
@@ -356,13 +417,68 @@ const AddCamera: React.FC = () => {
                 label="Longitude"
                 type="number"
                 value={formik.values.longitude}
-                onChange={formik.handleChange}
+                onChange={(e) => {
+                  formik.handleChange(e);
+                  if (formik.values.latitude !== 0) {
+                    setShowMapPreview(true);
+                  }
+                }}
                 onBlur={formik.handleBlur}
                 error={formik.touched.longitude && Boolean(formik.errors.longitude)}
                 helperText={formik.touched.longitude && formik.errors.longitude}
                 inputProps={{ step: 0.000001, min: -180, max: 180 }}
               />
             </Grid>
+
+            {/* Interactive Map Preview */}
+            {showMapPreview && formik.values.latitude !== 0 && formik.values.longitude !== 0 && (
+              <Grid item xs={12}>
+                <Paper elevation={2} sx={{ p: 2 }}>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Camera Location Preview
+                  </Typography>
+                  <Box sx={{ height: 300, borderRadius: 1, overflow: 'hidden' }}>
+                    <MapContainer
+                      center={[formik.values.latitude, formik.values.longitude]}
+                      zoom={15}
+                      style={{ height: '100%', width: '100%' }}
+                      key={`${formik.values.latitude}-${formik.values.longitude}`}
+                    >
+                      <TileLayer
+                        attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+                        url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+                      />
+                      <Marker
+                        position={[formik.values.latitude, formik.values.longitude]}
+                        icon={createCameraPreviewIcon()}
+                      >
+                        <Popup>
+                          <Box sx={{ minWidth: 200 }}>
+                            <Typography variant="h6" gutterBottom>
+                              <VideocamIcon sx={{ fontSize: 20, mr: 1, verticalAlign: 'middle' }} />
+                              {formik.values.name || 'New Camera'}
+                            </Typography>
+                            <Typography variant="body2" gutterBottom>
+                              {formik.values.description || 'Camera location preview'}
+                            </Typography>
+                            <Typography variant="caption" display="block" gutterBottom>
+                              📍 {formik.values.locationAddress || 'No address specified'}
+                            </Typography>
+                            <Typography variant="caption" display="block">
+                              📅 Lat: {formik.values.latitude.toFixed(6)}, Lng: {formik.values.longitude.toFixed(6)}
+                            </Typography>
+                          </Box>
+                        </Popup>
+                      </Marker>
+                    </MapContainer>
+                  </Box>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    💡 This preview shows where your camera will appear on the main map
+                  </Typography>
+                </Paper>
+              </Grid>
+            )}
+
             <Grid item xs={6}>
               <TextField
                 fullWidth
