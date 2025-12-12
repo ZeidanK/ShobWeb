@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -16,6 +16,7 @@ import {
   TextField,
   MenuItem,
   Fab,
+  CircularProgress,
 } from '@mui/material';
 import {
   Edit as EditIcon,
@@ -26,66 +27,54 @@ import {
   Stop as StopIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
+import { fetchCamerasData } from '../services/dataService';
+
+// Camera interface matching backend model structure
+interface Camera {
+  _id: string;
+  name: string;
+  description?: string;
+  streamUrl: string;
+  status: 'online' | 'offline' | 'maintenance';
+  type: 'ip' | 'analog' | 'usb';
+  location: {
+    coordinates: [number, number]; // [longitude, latitude]
+    address?: string;
+  };
+  settings: {
+    resolution: string;
+    fps: number;
+    recordingEnabled: boolean;
+  };
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
+}
 
 const Cameras: React.FC = () => {
   const navigate = useNavigate();
   const [openDialog, setOpenDialog] = useState(false);
-  const [selectedCamera, setSelectedCamera] = useState<any>(null);
+  const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
+  const [cameras, setCameras] = useState<Camera[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  // Mock data - replace with real API calls
-  const mockCameras = [
-    {
-      id: '1',
-      name: 'Front Gate Camera',
-      description: 'Main entrance monitoring',
-      streamUrl: 'rtsp://192.168.1.100:554/stream',
-      status: 'online',
-      type: 'ip',
-      location: {
-        coordinates: [-74.0060, 40.7128],
-        address: '123 Main St, New York, NY',
-      },
-      settings: {
-        resolution: '1920x1080',
-        fps: 30,
-        recordingEnabled: true,
-      },
-    },
-    {
-      id: '2',
-      name: 'Parking Lot Camera',
-      description: 'Vehicle monitoring area',
-      streamUrl: 'rtsp://192.168.1.101:554/stream',
-      status: 'online',
-      type: 'ip',
-      location: {
-        coordinates: [-74.0070, 40.7138],
-        address: '125 Main St, New York, NY',
-      },
-      settings: {
-        resolution: '1920x1080',
-        fps: 25,
-        recordingEnabled: false,
-      },
-    },
-    {
-      id: '3',
-      name: 'Side Entrance Camera',
-      description: 'Secondary access point',
-      streamUrl: 'rtsp://192.168.1.102:554/stream',
-      status: 'offline',
-      type: 'ip',
-      location: {
-        coordinates: [-74.0050, 40.7118],
-        address: '121 Main St, New York, NY',
-      },
-      settings: {
-        resolution: '1280x720',
-        fps: 20,
-        recordingEnabled: true,
-      },
-    },
-  ];
+  // API call to fetch cameras from backend
+  const fetchCameras = async () => {
+    try {
+      setLoading(true);
+      
+      const cameras = await fetchCamerasData();
+      setCameras(cameras);
+    } catch (error) {
+      console.error('Error fetching cameras:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCameras();
+  }, []);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -110,30 +99,48 @@ const Cameras: React.FC = () => {
     setSelectedCamera(null);
   };
 
-  const CameraCard: React.FC<{ camera: any }> = ({ camera }) => (
+  const CameraCard: React.FC<{ camera: Camera }> = ({ camera }) => (
     <Card>
       <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-          <VideocamIcon sx={{ mr: 1, color: 'primary.main' }} />
-          <Typography variant="h6" component="h2">
-            {camera.name}
-          </Typography>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <VideocamIcon color="primary" />
+            <Typography variant="h6" component="h2">
+              {camera.name}
+            </Typography>
+          </Box>
+          <Chip 
+            label={camera.status.toUpperCase()}
+            color={camera.status === 'online' ? 'success' : camera.status === 'offline' ? 'error' : 'warning'}
+            size="small"
+          />
         </Box>
         
         <Typography variant="body2" color="text.secondary" gutterBottom>
           {camera.description}
         </Typography>
         
-        <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+        <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
           <Chip
-            label={camera.status}
-            size="small"
-            color={getStatusColor(camera.status) as any}
-          />
-          <Chip
-            label={camera.type.toUpperCase()}
+            label={`${camera.type.toUpperCase()} Camera`}
             size="small"
             variant="outlined"
+          />
+          <Chip
+            label={camera.settings.resolution}
+            size="small"
+            variant="outlined"
+          />
+          <Chip
+            label={`${camera.settings.fps} FPS`}
+            size="small"
+            variant="outlined"
+          />
+          <Chip
+            label={camera.settings.recordingEnabled ? 'Recording' : 'Not Recording'}
+            size="small"
+            variant="outlined"
+            color={camera.settings.recordingEnabled ? 'success' : 'default'}
           />
         </Box>
         
@@ -143,10 +150,8 @@ const Cameras: React.FC = () => {
         <Typography variant="body2" gutterBottom>
           <strong>FPS:</strong> {camera.settings.fps}
         </Typography>
+        
         <Typography variant="body2" gutterBottom>
-          <strong>Recording:</strong> {camera.settings.recordingEnabled ? 'Enabled' : 'Disabled'}
-        </Typography>
-        <Typography variant="body2">
           <strong>Location:</strong> {camera.location.address}
         </Typography>
       </CardContent>
@@ -171,23 +176,28 @@ const Cameras: React.FC = () => {
 
   return (
     <Box>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Camera Management
-      </Typography>
-      <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-        Configure and monitor your security cameras.
-      </Typography>
+      <Box sx={{ mb: 3 }}>
+        <Typography variant="h4" gutterBottom fontWeight="bold">
+          Security Cameras
+        </Typography>
+        <Typography variant="subtitle1" color="text.secondary">
+          Manage your {cameras.length} security cameras
+        </Typography>
+      </Box>
 
-      {/* Cameras Grid */}
-      <Grid container spacing={3} sx={{ mt: 2 }}>
-        {mockCameras.map((camera) => (
-          <Grid item xs={12} md={6} lg={4} key={camera.id}>
-            <CameraCard camera={camera} />
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Add Camera FAB */}
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+          <CircularProgress size={60} />
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {cameras.map((camera) => (
+            <Grid item xs={12} md={6} lg={4} key={camera._id}>
+              <CameraCard camera={camera} />
+            </Grid>
+          ))}
+        </Grid>
+      )}      {/* Add Camera FAB */}
       <Fab
         color="primary"
         aria-label="add camera"

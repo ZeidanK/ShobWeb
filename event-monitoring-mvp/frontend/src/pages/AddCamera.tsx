@@ -201,8 +201,21 @@ const AddCamera: React.FC = () => {
     }
 
     try {
+      // Try to extract coordinates from URL if it looks like a Google Maps link
+      if (formik.values.locationAddress.includes('google.com/maps') || 
+          formik.values.locationAddress.includes('maps.app.goo.gl')) {
+        const coords = extractCoordinatesFromUrl(formik.values.locationAddress);
+        if (coords) {
+          formik.setFieldValue('latitude', parseFloat(coords.lat.toFixed(6)));
+          formik.setFieldValue('longitude', parseFloat(coords.lng.toFixed(6)));
+          setShowMapPreview(true);
+          toast.success('Coordinates extracted from Google Maps URL!');
+          return;
+        }
+      }
+
       // TODO: Replace with actual geocoding API call (Google Maps, OpenStreetMap, etc.)
-      // Mock geocoding - replace with real implementation
+      // For now, using mock geocoding
       const mockCoordinates = {
         lat: 40.7128 + (Math.random() - 0.5) * 0.1,
         lng: -74.0060 + (Math.random() - 0.5) * 0.1,
@@ -217,6 +230,63 @@ const AddCamera: React.FC = () => {
       toast.success('Coordinates updated from address');
     } catch (error) {
       toast.error('Failed to get coordinates from address');
+    }
+  };
+
+  // Extract coordinates from Google Maps URLs
+  const extractCoordinatesFromUrl = (url: string): { lat: number; lng: number } | null => {
+    try {
+      // Handle different Google Maps URL formats
+      
+      // Format 1: @lat,lng,zoom (most common)
+      let match = url.match(/@(-?\d+\.?\d*),(-?\d+\.?\d*),?\d*\.?\d*z?/);
+      if (match) {
+        return {
+          lat: parseFloat(match[1]),
+          lng: parseFloat(match[2])
+        };
+      }
+      
+      // Format 2: ll=lat,lng
+      match = url.match(/ll=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+      if (match) {
+        return {
+          lat: parseFloat(match[1]),
+          lng: parseFloat(match[2])
+        };
+      }
+      
+      // Format 3: q=lat,lng
+      match = url.match(/q=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+      if (match) {
+        return {
+          lat: parseFloat(match[1]),
+          lng: parseFloat(match[2])
+        };
+      }
+      
+      // Format 4: destination=lat,lng
+      match = url.match(/destination=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+      if (match) {
+        return {
+          lat: parseFloat(match[1]),
+          lng: parseFloat(match[2])
+        };
+      }
+      
+      // Format 5: center=lat,lng
+      match = url.match(/center=(-?\d+\.?\d*),(-?\d+\.?\d*)/);
+      if (match) {
+        return {
+          lat: parseFloat(match[1]),
+          lng: parseFloat(match[2])
+        };
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error extracting coordinates from URL:', error);
+      return null;
     }
   };
 
@@ -353,13 +423,16 @@ const AddCamera: React.FC = () => {
                   fullWidth
                   id="locationAddress"
                   name="locationAddress"
-                  label="Location Address"
+                  label="Location Address or Google Maps URL"
                   value={formik.values.locationAddress}
                   onChange={formik.handleChange}
                   onBlur={formik.handleBlur}
                   error={formik.touched.locationAddress && Boolean(formik.errors.locationAddress)}
-                  helperText={formik.touched.locationAddress && formik.errors.locationAddress}
-                  placeholder="123 Main St, City, State"
+                  helperText={formik.touched.locationAddress && formik.errors.locationAddress || 
+                    "Enter an address or paste a Google Maps URL for automatic coordinate extraction"}
+                  placeholder="123 Main St, City, State OR https://maps.google.com/..."
+                  multiline
+                  rows={2}
                 />
                 <Button
                   variant="outlined"

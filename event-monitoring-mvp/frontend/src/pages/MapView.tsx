@@ -2,44 +2,51 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Paper,
-  Chip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Switch,
-  FormControlLabel,
-  Button,
-  CircularProgress,
-  TextField,
-  InputAdornment,
+  Card,
+  CardContent,
+  IconButton,
+  Fab,
   Menu,
   MenuItem,
   ListItemIcon,
   ListItemText,
-  Autocomplete,
-  Fab,
-  Card,
-  CardContent,
-  Tooltip,
-  Divider,
+  TextField,
+  InputAdornment,
+  FormControl,
+  InputLabel,
+  Select,
+  FormControlLabel,
+  Switch,
+  Chip,
   Badge,
-  Grid,
+  CircularProgress,
+  Alert,
+  Collapse,
+  Tooltip,
+  Button,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  Divider,
+  CardActions,
+  Avatar,
 } from '@mui/material';
 import {
-  Videocam as VideocamIcon,
-  Refresh as RefreshIcon,
-  Search as SearchIcon,
-  FilterList as FilterIcon,
   Layers as LayersIcon,
-  Add as AddIcon,
-  MyLocation as MyLocationIcon,
-  Fullscreen as FullscreenIcon,
-  LocationOn as LocationIcon,
+  Search as SearchIcon,
+  FilterList as FilterListIcon,
+  LocationOn as LocationOnIcon,
   Event as EventIcon,
   Warning as WarningIcon,
   Close as CloseIcon,
+  Videocam as VideocamIcon,
+  PlayArrow as PlayArrowIcon,
+  Settings as SettingsIcon,
+  Info as InfoIcon,
+  Fullscreen as FullscreenIcon,
+  ZoomIn as ZoomInIcon,
+  ZoomOut as ZoomOutIcon,
 } from '@mui/icons-material';
 import {
   MapContainer,
@@ -49,6 +56,8 @@ import {
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import { Camera } from '../types/index';
+import { fetchCamerasData, fetchEventsData, SecurityEvent } from '../services/dataService';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -81,57 +90,6 @@ const createCameraIcon = (status: 'online' | 'offline' | 'maintenance') => {
   });
 };
 
-/**
- * Camera interface matching backend model structure
- */
-interface Camera {
-  _id: string;
-  name: string;
-  description?: string;
-  streamUrl: string;
-  status: 'online' | 'offline' | 'maintenance';
-  type: 'ip' | 'analog' | 'usb';
-  location: {
-    coordinates: [number, number]; // [longitude, latitude]
-    address?: string;
-  };
-  settings: {
-    resolution: string;
-    fps: number;
-    recordingEnabled: boolean;
-  };
-  isActive: boolean;
-  createdAt: string;
-  updatedAt: string;
-}
-
-/**
- * Event interface for security events on the map
- */
-interface SecurityEvent {
-  _id: string;
-  type: 'motion' | 'person_detected' | 'vehicle_detected' | 'unauthorized_access' | 'tamper_detected';
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  location: {
-    coordinates: [number, number];
-    address?: string;
-  };
-  camera: string; // Camera ID
-  cameraName?: string;
-  timestamp: string;
-  description?: string;
-  resolved: boolean;
-  metadata?: {
-    confidence?: number;
-    duration?: number;
-    objectCount?: number;
-  };
-}
-
-/**
- * MapView Component - Interactive map displaying security cameras and events
- * Uses Leaflet with OpenStreetMap (completely free, no API key required)
- */
 const MapView: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
@@ -153,175 +111,21 @@ const MapView: React.FC = () => {
   
   // UI states
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
+  const [showSidebar, setShowSidebar] = useState(false);
+  const [showOverview, setShowOverview] = useState(true);
+  const [selectedCameraDetails, setSelectedCameraDetails] = useState<Camera | null>(null);
 
-  // API call to fetch cameras and events
+  // Fetch cameras and events from backend
   const fetchCameras = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
+      const [cameras, events] = await Promise.all([
+        fetchCamerasData(),
+        fetchEventsData(),
+      ]);
       
-      // Mock data matching backend structure for now
-      const mockCameras: Camera[] = [
-        {
-          _id: '1',
-          name: 'Front Gate Camera',
-          description: 'Main entrance monitoring',
-          streamUrl: 'rtsp://192.168.1.100:554/stream',
-          status: 'online',
-          type: 'ip',
-          location: {
-            coordinates: [-74.0060, 40.7128], // NYC coordinates
-            address: '123 Main St, New York, NY',
-          },
-          settings: {
-            resolution: '1920x1080',
-            fps: 30,
-            recordingEnabled: true,
-          },
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          _id: '2',
-          name: 'Parking Lot Camera',
-          description: 'Vehicle monitoring area',
-          streamUrl: 'rtsp://192.168.1.101:554/stream',
-          status: 'online',
-          type: 'ip',
-          location: {
-            coordinates: [-74.0070, 40.7138],
-            address: '125 Main St, New York, NY',
-          },
-          settings: {
-            resolution: '1920x1080',
-            fps: 25,
-            recordingEnabled: false,
-          },
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          _id: '3',
-          name: 'Side Entrance Camera',
-          description: 'Secondary access point',
-          streamUrl: 'rtsp://192.168.1.102:554/stream',
-          status: 'offline',
-          type: 'ip',
-          location: {
-            coordinates: [-74.0050, 40.7118],
-            address: '121 Main St, New York, NY',
-          },
-          settings: {
-            resolution: '1280x720',
-            fps: 20,
-            recordingEnabled: true,
-          },
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-        {
-          _id: '4',
-          name: 'Loading Dock Camera',
-          description: 'Delivery area surveillance',
-          streamUrl: 'rtsp://192.168.1.103:554/stream',
-          status: 'maintenance',
-          type: 'ip',
-          location: {
-            coordinates: [-74.0040, 40.7108],
-            address: '119 Main St, New York, NY',
-          },
-          settings: {
-            resolution: '1920x1080',
-            fps: 30,
-            recordingEnabled: true,
-          },
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        },
-      ];
-      
-      const mockEvents: SecurityEvent[] = [
-        {
-          _id: 'evt1',
-          type: 'person_detected',
-          severity: 'medium',
-          location: {
-            coordinates: [-74.0062, 40.7130],
-            address: '123 Main St, New York, NY',
-          },
-          camera: '1',
-          cameraName: 'Front Gate Camera',
-          timestamp: new Date(Date.now() - 5 * 60 * 1000).toISOString(), // 5 minutes ago
-          description: 'Person detected at main entrance',
-          resolved: false,
-          metadata: {
-            confidence: 0.95,
-            duration: 30,
-            objectCount: 1,
-          },
-        },
-        {
-          _id: 'evt2',
-          type: 'unauthorized_access',
-          severity: 'high',
-          location: {
-            coordinates: [-74.0052, 40.7120],
-            address: '121 Main St, New York, NY',
-          },
-          camera: '3',
-          cameraName: 'Side Entrance Camera',
-          timestamp: new Date(Date.now() - 15 * 60 * 1000).toISOString(), // 15 minutes ago
-          description: 'Attempted access to restricted area',
-          resolved: false,
-          metadata: {
-            confidence: 0.88,
-            duration: 45,
-          },
-        },
-        {
-          _id: 'evt3',
-          type: 'vehicle_detected',
-          severity: 'low',
-          location: {
-            coordinates: [-74.0072, 40.7140],
-            address: '125 Main St, New York, NY',
-          },
-          camera: '2',
-          cameraName: 'Parking Lot Camera',
-          timestamp: new Date(Date.now() - 30 * 60 * 1000).toISOString(), // 30 minutes ago
-          description: 'Vehicle entered parking area',
-          resolved: true,
-          metadata: {
-            confidence: 0.92,
-            duration: 120,
-            objectCount: 1,
-          },
-        },
-        {
-          _id: 'evt4',
-          type: 'motion',
-          severity: 'critical',
-          location: {
-            coordinates: [-74.0042, 40.7110],
-            address: '119 Main St, New York, NY',
-          },
-          camera: '4',
-          cameraName: 'Loading Dock Camera',
-          timestamp: new Date(Date.now() - 60 * 60 * 1000).toISOString(), // 1 hour ago
-          description: 'Unusual motion detected during off-hours',
-          resolved: false,
-          metadata: {
-            confidence: 0.78,
-            duration: 180,
-          },
-        },
-      ];
-      
-      setCameras(mockCameras);
-      setEvents(mockEvents);
+      setCameras(cameras);
+      setEvents(events);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
@@ -329,9 +133,8 @@ const MapView: React.FC = () => {
     }
   };
 
-  // Filtering and search functions
+  // Apply filters
   const applyFilters = () => {
-    // Filter cameras
     let filteredCams = cameras.filter(camera => {
       const matchesSearch = searchTerm === '' || 
         camera.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -343,7 +146,6 @@ const MapView: React.FC = () => {
       return matchesSearch && matchesStatus;
     });
 
-    // Filter events
     let filteredEvts = events.filter(event => {
       const matchesSearch = searchTerm === '' || 
         event.cameraName?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -361,7 +163,10 @@ const MapView: React.FC = () => {
     setFilteredEvents(filteredEvts);
   };
 
-  // Apply filters when dependencies change
+  useEffect(() => {
+    fetchCameras();
+  }, []);
+
   useEffect(() => {
     applyFilters();
   }, [cameras, events, searchTerm, statusFilter, eventTypeFilter, severityFilter, showUnresolvedOnly]);
@@ -372,13 +177,13 @@ const MapView: React.FC = () => {
       low: '#2196f3',
       medium: '#ff9800',
       high: '#f44336',
-      critical: '#9c27b0'
+      critical: '#d32f2f'
     };
 
     const svgIcon = `
       <svg width="30" height="30" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="15" cy="15" r="13" fill="${colors[severity as keyof typeof colors]}" stroke="white" stroke-width="2"/>
-        <path d="M15 6l1.5 9h-3l1.5-9zm0 12a1.5 1.5 0 100 3 1.5 1.5 0 000-3z" fill="white"/>
+        <circle cx="15" cy="15" r="12" fill="${colors[severity as keyof typeof colors]}" stroke="white" stroke-width="2"/>
+        <path d="M10 8h10v6h-10z M15 14l5-3v8l-5-3z" fill="white"/>
       </svg>
     `;
 
@@ -390,54 +195,27 @@ const MapView: React.FC = () => {
     });
   };
 
-  /**
-   * Initialize component - fetch cameras
-   */
-  useEffect(() => {
-    fetchCameras();
-  }, []);
-
-  /**
-   * Refresh camera data
-   */
-  const handleRefresh = () => {
-    fetchCameras();
-  };
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
-    <Box sx={{ height: '100%', position: 'relative' }}>
-      {/* Enhanced Header Section with Search and Filters */}
-      <Box sx={{ mb: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-          <Box>
-            <Typography variant="h4" gutterBottom fontWeight="bold">
-              Interactive Security Map
-            </Typography>
-            <Typography variant="subtitle1" color="text.secondary">
-              {filteredCameras.length} cameras • {filteredEvents.filter(e => !e.resolved).length} active events
-            </Typography>
-          </Box>
-          
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={handleRefresh}
-            disabled={loading}
-            size="small"
-          >
-            Refresh
-          </Button>
-        </Box>
-
-        {/* Search and Filter Bar */}
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', mb: 2, flexWrap: 'wrap' }}>
-          {/* Search Field */}
+    <Box sx={{ height: '100vh', position: 'relative' }}>
+      {/* Header with Search and Filters */}
+      <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', zIndex: 1000, position: 'relative' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h5" component="h1">
+            Security Map
+          </Typography>
           <TextField
-            placeholder="Search cameras, events, locations..."
+            size="small"
+            placeholder="Search cameras and events..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            size="small"
-            sx={{ minWidth: 300 }}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
@@ -445,401 +223,163 @@ const MapView: React.FC = () => {
                 </InputAdornment>
               ),
             }}
+            sx={{ minWidth: 300 }}
           />
-
-          {/* Quick Filters */}
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showCameras}
-                onChange={(e) => setShowCameras(e.target.checked)}
-                color="primary"
-              />
-            }
-            label="Cameras"
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showEvents}
-                onChange={(e) => setShowEvents(e.target.checked)}
-                color="warning"
-              />
-            }
-            label="Events"
-          />
-          <FormControlLabel
-            control={
-              <Switch
-                checked={showUnresolvedOnly}
-                onChange={(e) => setShowUnresolvedOnly(e.target.checked)}
-                color="error"
-              />
-            }
-            label="Unresolved Only"
-          />
-
-          {/* Filter Menu Button */}
-          <Button
-            variant="outlined"
-            startIcon={<FilterIcon />}
-            onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-            size="small"
-          >
-            Filters
-          </Button>
-
-          {/* Layers Button */}
-          <Button
-            variant="outlined"
-            startIcon={<LayersIcon />}
-            onClick={() => setShowLayers(true)}
-            size="small"
-          >
-            Layers
-          </Button>
+          <IconButton onClick={(e) => setFilterAnchorEl(e.currentTarget)}>
+            <FilterListIcon />
+          </IconButton>
+          <IconButton onClick={() => setShowLayers(!showLayers)}>
+            <LayersIcon />
+          </IconButton>
+          <IconButton onClick={() => setShowSidebar(!showSidebar)}>
+            <InfoIcon />
+          </IconButton>
         </Box>
+
+        {/* Layer Controls */}
+        <Collapse in={showLayers}>
+          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+            <FormControlLabel
+              control={<Switch checked={showCameras} onChange={(e) => setShowCameras(e.target.checked)} />}
+              label={`Cameras (${filteredCameras.length})`}
+            />
+            <FormControlLabel
+              control={<Switch checked={showEvents} onChange={(e) => setShowEvents(e.target.checked)} />}
+              label={`Events (${filteredEvents.length})`}
+            />
+            <FormControlLabel
+              control={<Switch checked={showOverview} onChange={(e) => setShowOverview(e.target.checked)} />}
+              label="Overview Panel"
+            />
+          </Box>
+        </Collapse>
       </Box>
 
-      {/* Enhanced Map Container with Event Markers */}
-      <Paper 
-        elevation={3}
-        sx={{ 
-          position: 'relative',
-          height: 'calc(100vh - 250px)',
-          overflow: 'hidden',
-          borderRadius: 2
+      {/* Side Drawer for Camera Details */}
+      <Drawer
+        anchor="right"
+        open={showSidebar}
+        onClose={() => setShowSidebar(false)}
+        variant="persistent"
+        sx={{
+          width: showSidebar ? 400 : 0,
+          flexShrink: 0,
+          '& .MuiDrawer-paper': {
+            width: 400,
+            boxSizing: 'border-box',
+            top: '120px',
+            height: 'calc(100vh - 120px)',
+          },
         }}
       >
-        {loading && (
-          <Box
-            sx={{
-              position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000,
-            }}
-          >
-            <CircularProgress size={60} />
-            <Typography sx={{ ml: 2 }}>Loading map data...</Typography>
+        <Box sx={{ p: 2 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="h6">Camera Details</Typography>
+            <IconButton onClick={() => setShowSidebar(false)}>
+              <CloseIcon />
+            </IconButton>
           </Box>
-        )}
-        
-        <MapContainer
-          center={[40.7128, -74.0060]}
-          zoom={14}
-          style={{ height: '100%', width: '100%' }}
-          zoomControl={true}
-        >
-          <TileLayer
-            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-          />
           
-          {/* Camera Markers */}
-          {showCameras && filteredCameras.map((camera) => (
-            <Marker
-              key={camera._id}
-              position={[camera.location.coordinates[1], camera.location.coordinates[0]]}
-              icon={createCameraIcon(camera.status)}
-              eventHandlers={{
-                click: () => setSelectedCamera(camera)
-              }}
-            >
-              <Popup>
-                <Box sx={{ minWidth: 250 }}>
-                  <Typography variant="h6" gutterBottom>
-                    <VideocamIcon sx={{ fontSize: 20, mr: 1, verticalAlign: 'middle' }} />
-                    {camera.name}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Typography variant="body2">
-                      <strong>Status:</strong>
-                    </Typography>
-                    <Chip
-                      label={camera.status.toUpperCase()}
-                      color={camera.status === 'online' ? 'success' : camera.status === 'offline' ? 'error' : 'warning'}
-                      size="small"
+          {selectedCameraDetails ? (
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                  <Avatar sx={{ bgcolor: selectedCameraDetails.status === 'online' ? 'success.main' : selectedCameraDetails.status === 'offline' ? 'error.main' : 'warning.main' }}>
+                    <VideocamIcon />
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6">{selectedCameraDetails.name}</Typography>
+                    <Chip 
+                      label={selectedCameraDetails.status} 
+                      size="small" 
+                      color={selectedCameraDetails.status === 'online' ? 'success' : selectedCameraDetails.status === 'offline' ? 'error' : 'warning'}
                     />
                   </Box>
-                  {camera.description && (
-                    <Typography variant="body2" color="text.secondary" gutterBottom>
-                      {camera.description}
-                    </Typography>
-                  )}
-                  <Typography variant="caption" display="block" gutterBottom>
-                    <LocationIcon sx={{ fontSize: 12, mr: 0.5 }} />
-                    {camera.location.address || 'No address specified'}
-                  </Typography>
-                  <Typography variant="caption" display="block" gutterBottom>
-                    📹 {camera.settings.resolution} • {camera.settings.fps} FPS
-                  </Typography>
-                  <Button 
-                    size="small" 
-                    variant="contained"
-                    onClick={() => setSelectedCamera(camera)}
-                    sx={{ mt: 1 }}
-                  >
-                    View Details
-                  </Button>
                 </Box>
-              </Popup>
-            </Marker>
-          ))}
-
-          {/* Event Markers */}
-          {showEvents && filteredEvents.map((event) => (
-            <Marker
-              key={event._id}
-              position={[event.location.coordinates[1], event.location.coordinates[0]]}
-              icon={createEventIcon(event.severity)}
-              eventHandlers={{
-                click: () => setSelectedEvent(event)
-              }}
-            >
-              <Popup>
-                <Box sx={{ minWidth: 250 }}>
-                  <Typography variant="h6" gutterBottom>
-                    <WarningIcon sx={{ fontSize: 20, mr: 1, verticalAlign: 'middle' }} />
-                    {event.type.replace('_', ' ').toUpperCase()}
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Typography variant="body2">
-                      <strong>Severity:</strong>
-                    </Typography>
-                    <Chip
-                      label={event.severity.toUpperCase()}
-                      color={event.severity === 'critical' ? 'error' : event.severity === 'high' ? 'warning' : 'info'}
-                      size="small"
-                    />
-                    <Chip
-                      label={event.resolved ? 'RESOLVED' : 'ACTIVE'}
-                      color={event.resolved ? 'success' : 'error'}
-                      size="small"
-                    />
-                  </Box>
-                  <Typography variant="body2" gutterBottom>
-                    {event.description}
-                  </Typography>
-                  <Typography variant="caption" display="block" gutterBottom>
-                    📅 {new Date(event.timestamp).toLocaleString()}
-                  </Typography>
-                  <Typography variant="caption" display="block" gutterBottom>
-                    📹 {event.cameraName}
-                  </Typography>
-                  {event.metadata && (
-                    <Typography variant="caption" display="block" gutterBottom>
-                      🎯 Confidence: {Math.round((event.metadata.confidence || 0) * 100)}%
-                    </Typography>
-                  )}
-                  <Button 
-                    size="small" 
-                    variant="contained"
-                    onClick={() => setSelectedEvent(event)}
-                    sx={{ mt: 1 }}
-                  >
-                    View Details
-                  </Button>
+                
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {selectedCameraDetails.description}
+                </Typography>
+                
+                <Typography variant="subtitle2" gutterBottom>Location</Typography>
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  {selectedCameraDetails.location.address}
+                </Typography>
+                
+                <Typography variant="subtitle2" gutterBottom>Settings</Typography>
+                <Box sx={{ mb: 2 }}>
+                  <Typography variant="body2">Resolution: {selectedCameraDetails.settings.resolution}</Typography>
+                  <Typography variant="body2">FPS: {selectedCameraDetails.settings.fps}</Typography>
+                  <Typography variant="body2">Recording: {selectedCameraDetails.settings.recordingEnabled ? 'Enabled' : 'Disabled'}</Typography>
                 </Box>
-              </Popup>
-            </Marker>
-          ))}
-        </MapContainer>
-
-        {/* Map Stats Overlay */}
-        <Card
-          sx={{
-            position: 'absolute',
-            bottom: 16,
-            left: 16,
-            minWidth: 200,
-            bgcolor: 'rgba(255, 255, 255, 0.95)',
-            backdropFilter: 'blur(10px)',
-          }}
-        >
-          <CardContent sx={{ py: 1.5, px: 2, '&:last-child': { pb: 1.5 } }}>
-            <Typography variant="subtitle2" gutterBottom>
-              Map Overview
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#4caf50' }} />
-                <Typography variant="caption">{filteredCameras.filter(c => c.status === 'online').length} Online</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#f44336' }} />
-                <Typography variant="caption">{filteredCameras.filter(c => c.status === 'offline').length} Offline</Typography>
-              </Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#ff9800' }} />
-                <Typography variant="caption">{filteredCameras.filter(c => c.status === 'maintenance').length} Maintenance</Typography>
-              </Box>
-              <Divider sx={{ my: 0.5 }} />
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <WarningIcon sx={{ fontSize: 12, color: '#f44336' }} />
-                <Typography variant="caption">{filteredEvents.filter(e => !e.resolved).length} Active Events</Typography>
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
-      </Paper>
-
-      {/* Camera Details Dialog */}
-      <Dialog
-        open={Boolean(selectedCamera)}
-        onClose={() => setSelectedCamera(null)}
-        maxWidth="md"
-      >
-        {selectedCamera && (
-          <>
-            <DialogTitle>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <VideocamIcon color="primary" />
-                {selectedCamera.name}
-                <Chip
-                  label={selectedCamera.status}
-                  color={selectedCamera.status === 'online' ? 'success' : 'error'}
+              </CardContent>
+              
+              <CardActions sx={{ justifyContent: 'space-between' }}>
+                <Button 
+                  variant="contained" 
+                  startIcon={<PlayArrowIcon />}
+                  disabled={selectedCameraDetails.status !== 'online'}
                   size="small"
-                />
-              </Box>
-            </DialogTitle>
-            <DialogContent>
-              <Box sx={{ minWidth: 400 }}>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Type:</strong> {selectedCamera.type.toUpperCase()} Camera
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Resolution:</strong> {selectedCamera.settings.resolution}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>FPS:</strong> {selectedCamera.settings.fps}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Recording:</strong> {selectedCamera.settings.recordingEnabled ? 'Enabled' : 'Disabled'}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Location:</strong> {selectedCamera.location.address || 'No address'}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Coordinates:</strong> {selectedCamera.location.coordinates[1].toFixed(6)}, {selectedCamera.location.coordinates[0].toFixed(6)}
-                </Typography>
-                <Typography variant="body2" gutterBottom>
-                  <strong>Stream URL:</strong>
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    fontFamily: 'monospace', 
-                    fontSize: '0.75rem',
-                    wordBreak: 'break-all',
-                    color: 'text.secondary',
-                    bgcolor: 'grey.100',
-                    p: 1,
-                    borderRadius: 1
-                  }}
                 >
-                  {selectedCamera.streamUrl}
-                </Typography>
-              </Box>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setSelectedCamera(null)}>Close</Button>
-              <Button variant="contained" color="primary">
-                View Live Stream
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
-
-      {/* Event Details Dialog */}
-      <Dialog
-        open={Boolean(selectedEvent)}
-        onClose={() => setSelectedEvent(null)}
-        maxWidth="md"
-      >
-        {selectedEvent && (
-          <>
-            <DialogTitle>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <EventIcon color="warning" />
-                {selectedEvent.type.replace('_', ' ').toUpperCase()} Event
-                <Chip
-                  label={selectedEvent.severity.toUpperCase()}
-                  color={selectedEvent.severity === 'critical' ? 'error' : selectedEvent.severity === 'high' ? 'warning' : 'info'}
-                  size="small"
-                />
-                <Chip
-                  label={selectedEvent.resolved ? 'RESOLVED' : 'ACTIVE'}
-                  color={selectedEvent.resolved ? 'success' : 'error'}
-                  size="small"
-                />
-              </Box>
-            </DialogTitle>
-            <DialogContent>
-              <Grid container spacing={2}>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Event Type:</strong> {selectedEvent.type.replace('_', ' ')}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Severity:</strong> {selectedEvent.severity}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Camera:</strong> {selectedEvent.cameraName}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Timestamp:</strong> {new Date(selectedEvent.timestamp).toLocaleString()}
-                  </Typography>
-                </Grid>
-                <Grid item xs={12} sm={6}>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Location:</strong> {selectedEvent.location.address || 'No address'}
-                  </Typography>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Coordinates:</strong> {selectedEvent.location.coordinates[1].toFixed(6)}, {selectedEvent.location.coordinates[0].toFixed(6)}
-                  </Typography>
-                  {selectedEvent.metadata?.confidence && (
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Confidence:</strong> {Math.round(selectedEvent.metadata.confidence * 100)}%
-                    </Typography>
-                  )}
-                  {selectedEvent.metadata?.duration && (
-                    <Typography variant="body2" gutterBottom>
-                      <strong>Duration:</strong> {selectedEvent.metadata.duration}s
-                    </Typography>
-                  )}
-                </Grid>
-                <Grid item xs={12}>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Description:</strong>
-                  </Typography>
-                  <Typography variant="body2" sx={{ bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
-                    {selectedEvent.description}
-                  </Typography>
-                </Grid>
-              </Grid>
-            </DialogContent>
-            <DialogActions>
-              <Button onClick={() => setSelectedEvent(null)}>Close</Button>
-              {!selectedEvent.resolved && (
-                <Button variant="contained" color="primary">
-                  Mark as Resolved
+                  Live Feed
                 </Button>
-              )}
-              <Button variant="outlined">
-                View Recording
-              </Button>
-            </DialogActions>
-          </>
-        )}
-      </Dialog>
+                <Button 
+                  variant="outlined" 
+                  startIcon={<SettingsIcon />}
+                  size="small"
+                >
+                  Settings
+                </Button>
+              </CardActions>
+            </Card>
+          ) : (
+            <Typography variant="body2" color="text.secondary">
+              Click on a camera marker to view details
+            </Typography>
+          )}
+          
+          <Divider sx={{ my: 3 }} />
+          
+          <Typography variant="h6" gutterBottom>All Cameras</Typography>
+          <List>
+            {filteredCameras.map((camera) => (
+              <ListItem key={camera._id} disablePadding>
+                <ListItemButton 
+                  onClick={() => {
+                    setSelectedCameraDetails(camera);
+                    setSelectedCamera(camera);
+                  }}
+                  selected={selectedCameraDetails?._id === camera._id}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+                    <Avatar sx={{ 
+                      bgcolor: camera.status === 'online' ? 'success.main' : camera.status === 'offline' ? 'error.main' : 'warning.main',
+                      width: 32,
+                      height: 32
+                    }}>
+                      <VideocamIcon sx={{ fontSize: 16 }} />
+                    </Avatar>
+                    <Box sx={{ flexGrow: 1 }}>
+                      <Typography variant="body2" fontWeight="medium">
+                        {camera.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {camera.location.address}
+                      </Typography>
+                    </Box>
+                    <Chip 
+                      label={camera.status} 
+                      size="small"
+                      variant="outlined"
+                      color={camera.status === 'online' ? 'success' : camera.status === 'offline' ? 'error' : 'warning'}
+                    />
+                  </Box>
+                </ListItemButton>
+              </ListItem>
+            ))}
+          </List>
+        </Box>
+      </Drawer>
 
       {/* Filter Menu */}
       <Menu
@@ -848,161 +388,253 @@ const MapView: React.FC = () => {
         onClose={() => setFilterAnchorEl(null)}
       >
         <Box sx={{ p: 2, minWidth: 250 }}>
-          <Typography variant="h6" gutterBottom>
-            Advanced Filters
-          </Typography>
-          
-          <Typography variant="subtitle2" gutterBottom>
-            Camera Status
-          </Typography>
-          <Autocomplete
-            options={['all', 'online', 'offline', 'maintenance']}
-            value={statusFilter}
-            onChange={(_, newValue) => setStatusFilter(newValue || 'all')}
-            size="small"
-            sx={{ mb: 2 }}
-            renderInput={(params) => <TextField {...params} label="Status" />}
-          />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Camera Status</InputLabel>
+            <Select
+              value={statusFilter}
+              label="Camera Status"
+              onChange={(e) => setStatusFilter(e.target.value)}
+            >
+              <MenuItem value="all">All Status</MenuItem>
+              <MenuItem value="online">Online</MenuItem>
+              <MenuItem value="offline">Offline</MenuItem>
+              <MenuItem value="maintenance">Maintenance</MenuItem>
+            </Select>
+          </FormControl>
 
-          <Typography variant="subtitle2" gutterBottom>
-            Event Type
-          </Typography>
-          <Autocomplete
-            options={['all', 'motion', 'person_detected', 'vehicle_detected', 'unauthorized_access', 'tamper_detected']}
-            value={eventTypeFilter}
-            onChange={(_, newValue) => setEventTypeFilter(newValue || 'all')}
-            size="small"
-            sx={{ mb: 2 }}
-            renderInput={(params) => <TextField {...params} label="Event Type" />}
-          />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Event Type</InputLabel>
+            <Select
+              value={eventTypeFilter}
+              label="Event Type"
+              onChange={(e) => setEventTypeFilter(e.target.value)}
+            >
+              <MenuItem value="all">All Types</MenuItem>
+              <MenuItem value="motion">Motion</MenuItem>
+              <MenuItem value="person_detected">Person Detected</MenuItem>
+              <MenuItem value="intrusion">Intrusion</MenuItem>
+            </Select>
+          </FormControl>
 
-          <Typography variant="subtitle2" gutterBottom>
-            Event Severity
-          </Typography>
-          <Autocomplete
-            options={['all', 'low', 'medium', 'high', 'critical']}
-            value={severityFilter}
-            onChange={(_, newValue) => setSeverityFilter(newValue || 'all')}
-            size="small"
-            sx={{ mb: 2 }}
-            renderInput={(params) => <TextField {...params} label="Severity" />}
-          />
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Severity</InputLabel>
+            <Select
+              value={severityFilter}
+              label="Severity"
+              onChange={(e) => setSeverityFilter(e.target.value)}
+            >
+              <MenuItem value="all">All Severities</MenuItem>
+              <MenuItem value="low">Low</MenuItem>
+              <MenuItem value="medium">Medium</MenuItem>
+              <MenuItem value="high">High</MenuItem>
+              <MenuItem value="critical">Critical</MenuItem>
+            </Select>
+          </FormControl>
 
-          <Button
-            variant="outlined"
-            onClick={() => {
-              setStatusFilter('all');
-              setEventTypeFilter('all');
-              setSeverityFilter('all');
-              setShowUnresolvedOnly(false);
-              setSearchTerm('');
-            }}
-            fullWidth
-          >
-            Reset Filters
-          </Button>
+          <FormControlLabel
+            control={
+              <Switch 
+                checked={showUnresolvedOnly} 
+                onChange={(e) => setShowUnresolvedOnly(e.target.checked)} 
+              />
+            }
+            label="Unresolved Events Only"
+          />
         </Box>
       </Menu>
 
-      {/* Layers Dialog */}
-      <Dialog open={showLayers} onClose={() => setShowLayers(false)} maxWidth="sm">
-        <DialogTitle>Map Layers</DialogTitle>
-        <DialogContent>
-          <Box sx={{ minWidth: 300 }}>
-            <Typography variant="h6" gutterBottom>
-              Visibility Controls
-            </Typography>
-            <FormControlLabel
-              control={<Switch checked={showCameras} onChange={(e) => setShowCameras(e.target.checked)} />}
-              label="Security Cameras"
-            />
-            <FormControlLabel
-              control={<Switch checked={showEvents} onChange={(e) => setShowEvents(e.target.checked)} />}
-              label="Security Events"
-            />
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Event Filters
-            </Typography>
-            <FormControlLabel
-              control={<Switch checked={showUnresolvedOnly} onChange={(e) => setShowUnresolvedOnly(e.target.checked)} />}
-              label="Show Unresolved Events Only"
-            />
-            <Divider sx={{ my: 2 }} />
-            <Typography variant="h6" gutterBottom>
-              Map Statistics
-            </Typography>
-            <Typography variant="body2">
-              Total Cameras: {cameras.length}
-            </Typography>
-            <Typography variant="body2">
-              Visible Cameras: {filteredCameras.length}
-            </Typography>
-            <Typography variant="body2">
-              Total Events: {events.length}
-            </Typography>
-            <Typography variant="body2">
-              Visible Events: {filteredEvents.length}
-            </Typography>
-            <Typography variant="body2">
-              Active Events: {filteredEvents.filter(e => !e.resolved).length}
-            </Typography>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowLayers(false)}>Close</Button>
-        </DialogActions>
-      </Dialog>
+      {/* Map */}
+      <Box sx={{ height: 'calc(100vh - 120px)', position: 'relative' }}>
+        <MapContainer
+          center={[40.7128, -74.0060]}
+          zoom={13}
+          style={{ height: '100%', width: showSidebar ? 'calc(100% - 400px)' : '100%' }}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+          />
 
-      {/* Floating Add Camera Button */}
-      <Fab
-        color="primary"
-        aria-label="add camera"
-        sx={{
-          position: 'fixed',
-          bottom: 24,
-          right: 24,
-        }}
-        onClick={() => {
-          // Navigate to AddCamera page
-          window.location.href = '/cameras/add';
-        }}
-      >
-        <AddIcon />
-      </Fab>
+          {/* Camera Markers */}
+          {showCameras && filteredCameras.map((camera) => (
+            <Marker
+              key={`camera-${camera._id}-${camera.location.coordinates[1]}-${camera.location.coordinates[0]}`}
+              position={[camera.location.coordinates[1], camera.location.coordinates[0]]}
+              icon={createCameraIcon(camera.status)}
+              eventHandlers={{
+                click: () => {
+                  setSelectedCameraDetails(camera);
+                  setSelectedCamera(camera);
+                  setShowSidebar(true);
+                },
+              }}
+            >
+              <Popup>
+                <Box>
+                  <Typography variant="h6">{camera.name}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {camera.description}
+                  </Typography>
+                  <Chip
+                    label={camera.status}
+                    size="small"
+                    color={camera.status === 'online' ? 'success' : camera.status === 'offline' ? 'error' : 'warning'}
+                    sx={{ mt: 1, mb: 2 }}
+                  />
+                  <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+                    <Button 
+                      size="small" 
+                      variant="contained" 
+                      startIcon={<PlayArrowIcon />}
+                      disabled={camera.status !== 'online'}
+                      onClick={() => {
+                        setSelectedCameraDetails(camera);
+                        setShowSidebar(true);
+                      }}
+                    >
+                      View Details
+                    </Button>
+                  </Box>
+                </Box>
+              </Popup>
+            </Marker>
+          ))}
 
-      {/* Enhanced CSS for markers and animations */}
-      <style>{`
-        .custom-camera-marker {
-          background: transparent !important;
-          border: none !important;
-        }
-        
-        .custom-camera-marker:hover {
-          transform: scale(1.1);
-          transition: transform 0.2s ease;
-        }
+          {/* Event Markers - CRITICAL FIX: Using stable coordinate-based keys */}
+          {showEvents && filteredEvents.map((event) => (
+            <Marker
+              key={`event-${event._id}-${event.location.coordinates[1]}-${event.location.coordinates[0]}`}
+              position={[event.location.coordinates[1], event.location.coordinates[0]]}
+              icon={createEventIcon(event.severity)}
+            >
+              <Popup>
+                <Box>
+                  <Typography variant="h6">{event.type.replace('_', ' ')}</Typography>
+                  <Typography variant="body2">{event.description}</Typography>
+                  <Box sx={{ mt: 1, display: 'flex', gap: 1 }}>
+                    <Chip
+                      label={event.severity}
+                      size="small"
+                      color={event.severity === 'critical' ? 'error' : event.severity === 'high' ? 'warning' : 'default'}
+                    />
+                    {!event.resolved && (
+                      <Chip
+                        label="Unresolved"
+                        size="small"
+                        color="error"
+                        variant="outlined"
+                      />
+                    )}
+                  </Box>
+                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                    Camera: {event.cameraName}
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    {new Date(event.timestamp).toLocaleString()}
+                  </Typography>
+                </Box>
+              </Popup>
+            </Marker>
+          ))}
+        </MapContainer>
 
-        .custom-event-marker {
-          background: transparent !important;
-          border: none !important;
-          animation: pulse 2s infinite;
-        }
+        {/* Bottom Left Overview Panel */}
+        <Collapse in={showOverview}>
+          <Card 
+            sx={{ 
+              position: 'absolute', 
+              bottom: 16, 
+              left: 16, 
+              minWidth: 300,
+              maxWidth: 400,
+              zIndex: 1000,
+              bgcolor: 'background.paper',
+              boxShadow: 3
+            }}
+          >
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" component="h2">
+                  System Overview
+                </Typography>
+                <IconButton 
+                  size="small" 
+                  onClick={() => setShowOverview(false)}
+                  sx={{ ml: 1 }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+              
+              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 2, mb: 2 }}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" color="primary.main" fontWeight="bold">
+                    {filteredCameras.length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Total Cameras
+                  </Typography>
+                </Box>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" color="error.main" fontWeight="bold">
+                    {filteredEvents.filter(e => !e.resolved).length}
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Active Events
+                  </Typography>
+                </Box>
+              </Box>
 
-        @keyframes pulse {
-          0% { transform: scale(1); opacity: 1; }
-          50% { transform: scale(1.1); opacity: 0.7; }
-          100% { transform: scale(1); opacity: 1; }
-        }
-
-        .leaflet-popup-content-wrapper {
-          border-radius: 8px !important;
-        }
-        
-        .leaflet-popup-content {
-          margin: 0 !important;
-        }
-      `}</style>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2">Online Cameras:</Typography>
+                <Chip 
+                  label={`${filteredCameras.filter(c => c.status === 'online').length}/${filteredCameras.length}`}
+                  size="small"
+                  color="success"
+                  variant="outlined"
+                />
+              </Box>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="body2">Critical Events:</Typography>
+                <Chip 
+                  label={filteredEvents.filter(e => e.severity === 'critical' && !e.resolved).length}
+                  size="small"
+                  color="error"
+                  variant="outlined"
+                />
+              </Box>
+              
+              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                <Typography variant="body2">High Priority:</Typography>
+                <Chip 
+                  label={filteredEvents.filter(e => e.severity === 'high' && !e.resolved).length}
+                  size="small"
+                  color="warning"
+                  variant="outlined"
+                />
+              </Box>
+            </CardContent>
+            
+            <CardActions sx={{ justifyContent: 'space-between' }}>
+              <Button 
+                size="small"
+                onClick={() => setShowSidebar(true)}
+                startIcon={<InfoIcon />}
+              >
+                Camera Details
+              </Button>
+              <Button 
+                size="small" 
+                onClick={() => setShowLayers(!showLayers)}
+                startIcon={<LayersIcon />}
+              >
+                Layers
+              </Button>
+            </CardActions>
+          </Card>
+        </Collapse>
+      </Box>
     </Box>
   );
 };
