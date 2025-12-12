@@ -175,7 +175,7 @@ const Cameras: React.FC = () => {
   );
 
   return (
-    <Box>
+    <Box sx={{ height: '100vh', overflow: 'auto', p: 3 }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" gutterBottom fontWeight="bold">
           Security Cameras
@@ -190,13 +190,15 @@ const Cameras: React.FC = () => {
           <CircularProgress size={60} />
         </Box>
       ) : (
-        <Grid container spacing={3}>
-          {cameras.map((camera) => (
-            <Grid item xs={12} md={6} lg={4} key={camera._id}>
-              <CameraCard camera={camera} />
-            </Grid>
-          ))}
-        </Grid>
+        <Box sx={{ pb: 10 }}> {/* Add bottom padding for FAB */}
+          <Grid container spacing={3}>
+            {cameras.map((camera) => (
+              <Grid item xs={12} md={6} lg={4} key={camera._id}>
+                <CameraCard camera={camera} />
+              </Grid>
+            ))}
+          </Grid>
+        </Box>
       )}      {/* Add Camera FAB */}
       <Fab
         color="primary"

@@ -204,7 +204,7 @@ const MapView: React.FC = () => {
   }
 
   return (
-    <Box sx={{ height: '100vh', position: 'relative' }}>
+    <Box sx={{ height: '100vh', position: 'relative', overflow: 'hidden' }}>
       {/* Header with Search and Filters */}
       <Box sx={{ p: 2, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider', zIndex: 1000, position: 'relative' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -543,13 +543,15 @@ const MapView: React.FC = () => {
           <Card 
             sx={{ 
               position: 'absolute', 
-              bottom: 16, 
+              bottom: 24, 
               left: 16, 
               minWidth: 300,
               maxWidth: 400,
+              maxHeight: 'calc(100vh - 200px)',
               zIndex: 1000,
               bgcolor: 'background.paper',
-              boxShadow: 3
+              boxShadow: 3,
+              overflow: 'auto'
             }}
           >
             <CardContent>

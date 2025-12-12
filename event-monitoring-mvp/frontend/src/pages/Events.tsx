@@ -91,7 +91,7 @@ const Events: React.FC = () => {
   };
 
   return (
-    <Box>
+    <Box sx={{ height: '100vh', overflow: 'auto', p: 3 }}>
       <Typography variant="h4" gutterBottom fontWeight="bold">
         Event Management
       </Typography>
