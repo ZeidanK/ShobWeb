@@ -116,7 +116,7 @@ const Profile: React.FC = () => {
   };
 
   return (
-    <Box sx={{ height: '100vh', overflow: 'auto', p: 3 }}>
+    <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
       {/* Page Header */}
       <Typography variant="h4" gutterBottom fontWeight="bold">
         User Profile

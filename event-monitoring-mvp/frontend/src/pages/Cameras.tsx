@@ -175,7 +175,7 @@ const Cameras: React.FC = () => {
   );
 
   return (
-    <Box sx={{ height: '100vh', overflow: 'auto', p: 3 }}>
+    <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto', p: 3, pb: 10 }}>
       <Box sx={{ mb: 3 }}>
         <Typography variant="h4" gutterBottom fontWeight="bold">
           Security Cameras
