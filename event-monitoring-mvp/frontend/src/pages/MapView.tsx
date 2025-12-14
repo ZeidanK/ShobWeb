@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -53,11 +53,14 @@ import {
   TileLayer,
   Marker,
   Popup,
+  useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Camera } from '../types/index';
 import { fetchCamerasData, fetchEventsData, SecurityEvent } from '../services/dataService';
+import MapContextMenu from '../components/MapContextMenu';
+import { useNavigate } from 'react-router-dom';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -91,6 +94,7 @@ const createCameraIcon = (status: 'online' | 'offline' | 'maintenance') => {
 };
 
 const MapView: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<SecurityEvent | null>(null);
@@ -109,6 +113,12 @@ const MapView: React.FC = () => {
   const [severityFilter, setSeverityFilter] = useState<string>('all');
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
   
+  // Context menu states
+  const [contextMenu, setContextMenu] = useState<{
+    position: { x: number; y: number };
+    latLng: { lat: number; lng: number };
+  } | null>(null);
+  
   // UI states
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
   const [showSidebar, setShowSidebar] = useState(false);
@@ -116,7 +126,7 @@ const MapView: React.FC = () => {
   const [selectedCameraDetails, setSelectedCameraDetails] = useState<Camera | null>(null);
 
   // Fetch cameras and events from backend
-  const fetchCameras = async () => {
+  const fetchData = async () => {
     setLoading(true);
     try {
       const [cameras, events] = await Promise.all([
@@ -164,7 +174,7 @@ const MapView: React.FC = () => {
   };
 
   useEffect(() => {
-    fetchCameras();
+    fetchData();
   }, []);
 
   useEffect(() => {
@@ -193,6 +203,74 @@ const MapView: React.FC = () => {
       iconSize: [30, 30],
       iconAnchor: [15, 15],
     });
+  };
+
+  // Context menu handlers
+  const handleMapRightClick = (e: any) => {
+    const { lat, lng } = e.latlng;
+    const { x, y } = e.containerPoint;
+    
+    setContextMenu({
+      position: { x: x + e.target._container.offsetLeft, y: y + e.target._container.offsetTop },
+      latLng: { lat, lng }
+    });
+  };
+
+  const handleAddCamera = (position: { lat: number; lng: number }) => {
+    navigate('/cameras/add', { 
+      state: { 
+        coordinates: { 
+          latitude: position.lat, 
+          longitude: position.lng 
+        } 
+      } 
+    });
+  };
+
+  const handleCreateEvent = (position: { lat: number; lng: number }) => {
+    // TODO: Implement event creation modal
+    console.log('Creating event at:', position);
+  };
+
+  const handleViewCoverage = (position: { lat: number; lng: number }) => {
+    // TODO: Show camera coverage areas
+    console.log('Viewing coverage for:', position);
+  };
+
+  const handleAnalyzeArea = (position: { lat: number; lng: number }) => {
+    // TODO: Open area analysis tools
+    console.log('Analyzing area:', position);
+  };
+
+  const handleSetWaypoint = (position: { lat: number; lng: number }) => {
+    // TODO: Add waypoint functionality
+    console.log('Setting waypoint:', position);
+  };
+
+  const handleMeasureDistance = (position: { lat: number; lng: number }) => {
+    // TODO: Start distance measurement
+    console.log('Measuring distance from:', position);
+  };
+
+  const handleViewTimeline = (position: { lat: number; lng: number }) => {
+    // TODO: Show timeline for location
+    console.log('Viewing timeline for:', position);
+  };
+
+  // Map event handler component
+  const MapEventHandler = () => {
+    const map = useMapEvents({
+      contextmenu: (e) => {
+        const { lat, lng } = e.latlng;
+        const { x, y } = e.containerPoint;
+        
+        setContextMenu({
+          position: { x, y },
+          latLng: { lat, lng }
+        });
+      },
+    });
+    return null;
   };
 
   if (loading) {
@@ -238,7 +316,7 @@ const MapView: React.FC = () => {
 
         {/* Layer Controls */}
         <Collapse in={showLayers}>
-          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <FormControlLabel
               control={<Switch checked={showCameras} onChange={(e) => setShowCameras(e.target.checked)} />}
               label={`Cameras (${filteredCameras.length})`}
@@ -444,12 +522,16 @@ const MapView: React.FC = () => {
       </Menu>
 
       {/* Map */}
-      <Box sx={{ height: 'calc(100vh - 120px)', position: 'relative' }}>
+      <Box 
+        sx={{ height: 'calc(100vh - 120px)', position: 'relative' }}
+        onClick={() => setContextMenu(null)}
+      >
         <MapContainer
-          center={[40.7128, -74.0060]}
+          center={[40.7831, -73.9712]}
           zoom={13}
           style={{ height: '100%', width: showSidebar ? 'calc(100% - 400px)' : '100%' }}
         >
+          <MapEventHandler />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -637,6 +719,26 @@ const MapView: React.FC = () => {
           </Card>
         </Collapse>
       </Box>
+
+      {/* Right-click Context Menu */}
+      <MapContextMenu
+        position={contextMenu?.position || null}
+        latLng={contextMenu?.latLng || null}
+        onClose={() => setContextMenu(null)}
+        onAddCamera={handleAddCamera}
+        onCreateEvent={handleCreateEvent}
+        onViewCoverage={handleViewCoverage}
+        onAnalyzeArea={handleAnalyzeArea}
+        onSetWaypoint={handleSetWaypoint}
+        onMeasureDistance={handleMeasureDistance}
+        onViewTimeline={handleViewTimeline}
+        userRole="operator"
+        nearbyData={{
+          cameras: filteredCameras.length,
+          events: filteredEvents.length,
+          detections: 0
+        }}
+      />
     </Box>
   );
 };

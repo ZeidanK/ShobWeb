@@ -36,6 +36,7 @@ import authRoutes from './routes/auth';
 import cameraRoutes from './routes/cameras';
 import eventRoutes from './routes/events';
 import userRoutes from './routes/users';
+import aiDetectionRoutes from './routes/aiDetections';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -101,10 +102,11 @@ app.get('/health', (req, res) => {
  * API Route Handlers
  * Mount all API routes under their respective prefixes
  */
-app.use('/api/auth', authRoutes);      // Authentication and authorization routes
-app.use('/api/cameras', cameraRoutes); // Camera management routes  
-app.use('/api/events', eventRoutes);   // Event management routes
-app.use('/api/users', userRoutes);     // User management routes
+app.use('/api/auth', authRoutes);           // Authentication and authorization routes
+app.use('/api/cameras', cameraRoutes);      // Camera management routes  
+app.use('/api/events', eventRoutes);        // Event management routes
+app.use('/api/users', userRoutes);          // User management routes
+app.use('/api/detections', aiDetectionRoutes); // AI detection management routes
 
 /**
  * Socket.IO Real-Time Communication Setup
