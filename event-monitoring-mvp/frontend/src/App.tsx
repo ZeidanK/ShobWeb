@@ -7,6 +7,7 @@ import Layout from './components/Layout/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Events from './pages/Events';
+import EventSubmission from './pages/EventSubmission';
 import Cameras from './pages/Cameras';
 import AddCamera from './pages/AddCamera';
 import LiveView from './pages/LiveView';
@@ -53,6 +54,7 @@ const App: React.FC = () => {
         <Route path="/live-view" element={<LiveView />} />
         <Route path="/map" element={<MapView />} />
         <Route path="/events" element={<Events />} />
+        <Route path="/events/submit" element={<EventSubmission />} />
         <Route path="/cameras" element={<Cameras />} />
         <Route path="/cameras/add" element={<AddCamera />} />
         
