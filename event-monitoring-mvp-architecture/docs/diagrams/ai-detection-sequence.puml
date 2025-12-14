@@ -1,0 +1,36 @@
+@startuml AI Event Detection Flow
+!theme plain
+title Event Monitoring System - AI Event Detection Flow
+
+participant "IP Camera" as Camera
+participant "AI Analytics Service" as AI
+participant "Backend API" as Backend
+database "MongoDB" as DB
+participant "WebSocket" as WS
+participant "React App" as Frontend
+
+Camera -> AI: Send video frames\n(RTSP stream)
+AI -> AI: Process frame\n(ML model inference)
+AI -> AI: Detect objects\n(person/vehicle detection)
+
+alt Event Detected
+    AI -> AI: Create detection payload\n{camera_id, timestamp, \ntype, coordinates, confidence}
+    AI -> Backend: POST /internal/ai/events\n(Internal API endpoint)
+    Backend -> Backend: Validate detection data
+    Backend -> DB: Insert event document\ndb.events.insertOne(eventData)
+    DB -> Backend: Created event
+    Backend -> WS: Broadcast event\nio.emit('newEvent', event)
+    WS -> Frontend: Real-time event notification
+    Frontend -> Frontend: Update UI\n(add marker to map, \nshow notification)
+    Frontend -> User: Display new event alert
+else No Event
+    AI -> AI: Continue processing\nnext frame
+end
+
+note over AI
+AI Service runs continuously
+Processing video streams from
+all connected cameras
+end note
+
+@enduml

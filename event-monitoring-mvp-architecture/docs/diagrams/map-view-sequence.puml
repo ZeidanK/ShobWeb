@@ -1,0 +1,54 @@
+@startuml Map View Data Flow
+!theme plain
+title Event Monitoring System - Map View Data Flow
+
+actor User
+participant "React MapView" as Frontend
+participant "dataService.ts" as DataService
+participant "Backend API" as Backend
+database "MongoDB" as DB
+participant "OpenStreetMap" as MapTiles
+
+User -> Frontend: Navigate to Map View
+Frontend -> Frontend: Initialize map component
+
+== Fetch Data ==
+Frontend -> DataService: fetchCamerasData()
+DataService -> Backend: GET /api/cameras
+alt API Available
+    Backend -> DB: db.cameras.find()
+    DB -> Backend: Camera documents
+    Backend -> DataService: Camera data
+else API Not Available
+    DataService -> DataService: Return MOCK_CAMERAS
+end
+DataService -> Frontend: Camera array
+
+Frontend -> DataService: fetchEventsData()
+DataService -> Backend: GET /api/events
+alt API Available
+    Backend -> DB: db.events.find()
+    DB -> Backend: Event documents
+    Backend -> DataService: Event data
+else API Not Available
+    DataService -> DataService: Return MOCK_EVENTS
+end
+DataService -> Frontend: Event array
+
+Frontend -> MapTiles: Request map tiles
+MapTiles -> Frontend: Map tile images
+
+Frontend -> Frontend: Apply filters\n(status, severity, search)
+Frontend -> Frontend: Create camera markers\n(color-coded by status)
+Frontend -> Frontend: Create event markers\n(sized by severity)
+Frontend -> User: Display interactive map
+
+User -> Frontend: Click camera marker
+Frontend -> Frontend: Show camera popup\nwith details
+Frontend -> User: Display camera info
+
+User -> Frontend: Click event marker
+Frontend -> Frontend: Show event popup\nwith severity/description
+Frontend -> User: Display event details
+
+@enduml

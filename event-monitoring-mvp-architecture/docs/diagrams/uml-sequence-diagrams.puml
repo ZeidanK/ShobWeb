@@ -1,0 +1,369 @@
+@startuml User Authentication Flow
+!theme plain
+title Event Monitoring System - User Authentication Flow
+
+actor User
+participant "React App" as Frontend
+participant "Backend API" as Backend
+database "MongoDB" as DB
+
+User -> Frontend: Enter credentials
+Frontend -> Backend: POST /auth/login\n{username, password}
+Backend -> DB: Query users collection\ndb.users.findOne({username})
+DB -> Backend: User document
+Backend -> Backend: Validate password\n(bcrypt compare)
+alt Credentials Valid
+    Backend -> Backend: Generate JWT token
+    Backend -> Frontend: 200 OK\n{success: true, token, user}
+    Frontend -> Frontend: Store token in localStorage
+    Frontend -> User: Redirect to dashboard
+else Invalid Credentials
+    Backend -> Frontend: 401 Unauthorized\n{success: false, message}
+    Frontend -> User: Show error message
+end
+
+@enduml
+
+@startuml Camera Management Flow
+!theme plain
+title Event Monitoring System - Camera Management Flow
+
+actor User
+participant "React App" as Frontend
+participant "Backend API" as Backend
+database "MongoDB" as DB
+participant "IP Camera" as Camera
+
+== View Cameras ==
+User -> Frontend: Navigate to /cameras
+Frontend -> Backend: GET /api/cameras\nAuthorization: Bearer {token}
+Backend -> DB: Query cameras collection\ndb.cameras.find({createdBy: userId})
+DB -> Backend: Camera documents
+Backend -> Frontend: 200 OK\n{success: true, data: cameras[]}
+Frontend -> User: Display camera list
+
+== Add New Camera ==
+User -> Frontend: Click "Add Camera"
+Frontend -> User: Show AddCamera form
+User -> Frontend: Fill camera details\n(name, streamUrl, coordinates)
+Frontend -> Frontend: Validate form data\n(yup validation)
+Frontend -> Backend: POST /api/cameras\n{name, streamUrl, location, etc}
+Backend -> Backend: Validate JWT token
+Backend -> DB: Insert camera document\ndb.cameras.insertOne(cameraData)
+DB -> Backend: Created camera document
+Backend -> Frontend: 201 Created\n{success: true, data: camera}
+Frontend -> User: Success message\nRedirect to cameras list
+
+== Test Camera Connection ==
+User -> Frontend: Click "Test Connection"
+Frontend -> Frontend: Validate streamUrl exists
+Frontend -> Backend: POST /api/cameras/test\n{streamUrl}
+Backend -> Camera: Attempt connection\n(RTSP/HTTP request)
+alt Connection Successful
+    Camera -> Backend: Stream response
+    Backend -> Frontend: 200 OK\n{success: true, status: "connected"}
+    Frontend -> User: Show success indicator
+else Connection Failed
+    Camera -> Backend: Timeout/Error
+    Backend -> Frontend: 400 Bad Request\n{success: false, error: "connection_failed"}
+    Frontend -> User: Show error message
+end
+
+@enduml
+
+@startuml Live Video Streaming Flow
+!theme plain
+title Event Monitoring System - Live Video Streaming Flow
+
+actor User
+participant "React App" as Frontend
+participant "Backend API" as Backend
+database "MongoDB" as DB
+participant "IP Camera/VMS" as VideoSource
+
+User -> Frontend: Navigate to Live View
+Frontend -> Backend: GET /api/cameras\nAuthorization: Bearer {token}
+Backend -> DB: Query active cameras\ndb.cameras.find({status: "online"})
+DB -> Backend: Active camera list
+Backend -> Frontend: Camera data with streamUrls
+
+Frontend -> User: Display camera grid
+User -> Frontend: Select camera to view
+Frontend -> VideoSource: Direct video stream connection\n(WebRTC/HLS/RTSP)
+VideoSource -> Frontend: Live video stream
+Frontend -> User: Display live video
+
+note over Frontend, VideoSource
+Video streaming happens directly 
+between frontend and camera/VMS
+to reduce server load
+end note
+
+@enduml
+
+@startuml AI Event Detection Flow
+!theme plain
+title Event Monitoring System - AI Event Detection Flow
+
+participant "IP Camera" as Camera
+participant "AI Analytics Service" as AI
+participant "Backend API" as Backend
+database "MongoDB" as DB
+participant "WebSocket" as WS
+participant "React App" as Frontend
+
+Camera -> AI: Send video frames\n(RTSP stream)
+AI -> AI: Process frame\n(ML model inference)
+AI -> AI: Detect objects\n(person/vehicle detection)
+
+alt Event Detected
+    AI -> AI: Create detection payload\n{camera_id, timestamp, \ntype, coordinates, confidence}
+    AI -> Backend: POST /internal/ai/events\n(Internal API endpoint)
+    Backend -> Backend: Validate detection data
+    Backend -> DB: Insert event document\ndb.events.insertOne(eventData)
+    DB -> Backend: Created event
+    Backend -> WS: Broadcast event\nio.emit('newEvent', event)
+    WS -> Frontend: Real-time event notification
+    Frontend -> Frontend: Update UI\n(add marker to map, \nshow notification)
+    Frontend -> User: Display new event alert
+else No Event
+    AI -> AI: Continue processing\nnext frame
+end
+
+note over AI
+AI Service runs continuously
+Processing video streams from
+all connected cameras
+end note
+
+@enduml
+
+@startuml Map View Data Flow
+!theme plain
+title Event Monitoring System - Map View Data Flow
+
+actor User
+participant "React MapView" as Frontend
+participant "dataService.ts" as DataService
+participant "Backend API" as Backend
+database "MongoDB" as DB
+participant "OpenStreetMap" as MapTiles
+
+User -> Frontend: Navigate to Map View
+Frontend -> Frontend: Initialize map component
+
+== Fetch Data ==
+Frontend -> DataService: fetchCamerasData()
+DataService -> Backend: GET /api/cameras
+alt API Available
+    Backend -> DB: db.cameras.find()
+    DB -> Backend: Camera documents
+    Backend -> DataService: Camera data
+else API Not Available
+    DataService -> DataService: Return MOCK_CAMERAS
+end
+DataService -> Frontend: Camera array
+
+Frontend -> DataService: fetchEventsData()
+DataService -> Backend: GET /api/events
+alt API Available
+    Backend -> DB: db.events.find()
+    DB -> Backend: Event documents
+    Backend -> DataService: Event data
+else API Not Available
+    DataService -> DataService: Return MOCK_EVENTS
+end
+DataService -> Frontend: Event array
+
+Frontend -> MapTiles: Request map tiles
+MapTiles -> Frontend: Map tile images
+
+Frontend -> Frontend: Apply filters\n(status, severity, search)
+Frontend -> Frontend: Create camera markers\n(color-coded by status)
+Frontend -> Frontend: Create event markers\n(sized by severity)
+Frontend -> User: Display interactive map
+
+User -> Frontend: Click camera marker
+Frontend -> Frontend: Show camera popup\nwith details
+Frontend -> User: Display camera info
+
+User -> Frontend: Click event marker
+Frontend -> Frontend: Show event popup\nwith severity/description
+Frontend -> User: Display event details
+
+@enduml
+
+@startuml Event Management Flow
+!theme plain
+title Event Monitoring System - Event Management Flow
+
+actor "Security Operator" as User
+participant "React App" as Frontend
+participant "Backend API" as Backend
+database "MongoDB" as DB
+
+== View Events ==
+User -> Frontend: Navigate to Events page
+Frontend -> Backend: GET /api/events\n?status=&type=&severity=
+Backend -> DB: Query events with filters\ndb.events.find(filterQuery).sort({timestamp: -1})
+DB -> Backend: Event documents
+Backend -> Frontend: Paginated event list
+Frontend -> User: Display events table
+
+== Filter Events ==
+User -> Frontend: Apply filters\n(type, severity, status)
+Frontend -> Frontend: Update filter state
+Frontend -> Backend: GET /api/events\n?type=intrusion&severity=high
+Backend -> DB: Query with new filters
+DB -> Backend: Filtered events
+Backend -> Frontend: Updated event list
+Frontend -> User: Show filtered results
+
+== Resolve Event ==
+User -> Frontend: Click "Resolve" on event
+Frontend -> Backend: PATCH /api/events/{id}\n{resolved: true, resolvedBy: userId}
+Backend -> DB: Update event document\ndb.events.updateOne({_id}, {resolved: true})
+DB -> Backend: Updated document
+Backend -> Frontend: 200 OK\n{success: true, data: updatedEvent}
+Frontend -> Frontend: Update event in UI
+Frontend -> User: Show success message
+
+== View Event Details ==
+User -> Frontend: Click event row
+Frontend -> Frontend: Show event details modal
+Frontend -> User: Display full event info\n(location, camera, metadata)
+
+@enduml
+
+@startuml System Architecture Overview
+!theme plain
+title Event Monitoring System - Overall Architecture
+
+package "Frontend (React + TypeScript)" {
+    component [React Router] as Router
+    component [Material-UI Components] as UI
+    component [Leaflet Map] as Map
+    component [WebSocket Client] as WSClient
+    component [Data Service] as DataSvc
+}
+
+package "Backend (Node.js + Express)" {
+    component [Express API Server] as API
+    component [JWT Authentication] as Auth
+    component [WebSocket Server] as WSServer
+    component [Mongoose ODM] as ODM
+}
+
+package "AI Service (Python)" {
+    component [Video Processing] as VideoProc
+    component [ML Models] as ML
+    component [Event Detection] as EventDetect
+}
+
+database "MongoDB" {
+    collections users
+    collections cameras
+    collections events
+}
+
+cloud "External Services" {
+    component [IP Cameras] as Cameras
+    component [OpenStreetMap] as OSM
+}
+
+' Frontend connections
+Router --> UI
+UI --> Map
+UI --> DataSvc
+WSClient --> WSServer
+DataSvc --> API
+
+' Backend connections
+API --> Auth
+API --> ODM
+WSServer --> API
+ODM --> MongoDB
+
+' AI Service connections
+Cameras --> VideoProc
+VideoProc --> ML
+ML --> EventDetect
+EventDetect --> API
+
+' External connections
+Map --> OSM
+
+note as N1
+Data flows:
+1. User authentication via JWT
+2. Camera management (CRUD)
+3. Real-time event detection
+4. Live video streaming
+5. Interactive map with filters
+end note
+
+@enduml
+
+@startuml Database Schema Relationships
+!theme plain
+title Event Monitoring System - Database Schema
+
+entity "users" {
+    * _id : ObjectId
+    --
+    * username : String
+    * email : String
+    * password : String (hashed)
+    * role : String
+    * createdAt : Date
+    * updatedAt : Date
+}
+
+entity "cameras" {
+    * _id : ObjectId
+    --
+    * name : String
+    * description : String
+    * streamUrl : String
+    * status : String
+    * type : String
+    * location : Object
+    * settings : Object
+    * isActive : Boolean
+    * createdBy : ObjectId
+    * createdAt : Date
+    * updatedAt : Date
+}
+
+entity "events" {
+    * _id : ObjectId
+    --
+    * type : String
+    * severity : String
+    * location : Object
+    * camera : ObjectId
+    * timestamp : Date
+    * description : String
+    * resolved : Boolean
+    * resolvedBy : ObjectId
+    * metadata : Object
+    * createdAt : Date
+}
+
+users ||--o{ cameras : "createdBy"
+cameras ||--o{ events : "camera"
+users ||--o{ events : "resolvedBy"
+
+note as N2
+MongoDB Collections:
+- users: System operators/admins
+- cameras: IP camera configurations
+- events: AI-detected security events
+
+Relationships:
+- One user can create many cameras
+- One camera can generate many events
+- One user can resolve many events
+end note
+
+@enduml

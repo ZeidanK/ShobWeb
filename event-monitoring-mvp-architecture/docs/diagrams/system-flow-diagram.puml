@@ -1,0 +1,171 @@
+@startuml Event Monitoring System - Complete Flow Diagram
+!theme plain
+title Event Monitoring System - Complete System Flow
+
+start
+
+:User opens application;
+
+if (User authenticated?) then (no)
+    :Show login page;
+    :User enters credentials;
+    
+    if (Credentials valid?) then (no)
+        :Show error message;
+        stop
+    else (yes)
+        :Generate JWT token;
+        :Store token in localStorage;
+    endif
+else (yes)
+    :Load user session;
+endif
+
+:Display dashboard;
+
+while (User navigates system?) is (yes)
+    
+    switch (User selects?)
+    case (Dashboard)
+        :Load system overview;
+        :Display camera stats;
+        :Show recent events;
+    case (Cameras)
+        :Fetch camera list from API;
+        
+        if (API available?) then (no)
+            :Load mock camera data;
+        else (yes)
+            :Query MongoDB cameras collection;
+            :Return camera documents;
+        endif
+        
+        :Display camera grid;
+        
+        if (User clicks "Add Camera"?) then (yes)
+            :Show AddCamera form;
+            :User fills camera details;
+            
+            if (Form validation passes?) then (no)
+                :Show validation errors;
+            else (yes)
+                if (User tests connection?) then (yes)
+                    :Send test request to camera;
+                    
+                    if (Connection successful?) then (no)
+                        :Show connection error;
+                    else (yes)
+                        :Show success indicator;
+                    endif
+                endif
+                
+                :Submit camera data to API;
+                :Save to MongoDB;
+                :Redirect to cameras list;
+            endif
+        endif
+        
+    case (Live View)
+        :Fetch active cameras;
+        :Display video grid;
+        
+        if (User selects camera?) then (yes)
+            :Connect to video stream;
+            :Display live video;
+        endif
+        
+    case (Map View)
+        partition "Data Loading" {
+            fork
+                :Fetch cameras from API;
+                if (API available?) then (no)
+                    :Use MOCK_CAMERAS;
+                else (yes)
+                    :Query cameras from MongoDB;
+                endif
+            fork again
+                :Fetch events from API;
+                if (API available?) then (no)
+                    :Use MOCK_EVENTS;
+                else (yes)
+                    :Query events from MongoDB;
+                endif
+            fork again
+                :Load map tiles from OpenStreetMap;
+            end fork
+        }
+        
+        :Apply user filters;
+        :Create camera markers (color by status);
+        :Create event markers (size by severity);
+        :Display interactive map;
+        
+        if (User clicks marker?) then (yes)
+            if (Camera marker?) then (yes)
+                :Show camera details popup;
+                :Display in sidebar;
+            else (no)
+                :Show event details popup;
+            endif
+        endif
+        
+    case (Events)
+        :Fetch events with filters;
+        :Display events table;
+        
+        if (User applies filters?) then (yes)
+            :Update filter parameters;
+            :Refetch filtered events;
+        endif
+        
+        if (User resolves event?) then (yes)
+            :Send PATCH request to API;
+            :Update event in MongoDB;
+            :Update UI;
+        endif
+        
+    case (Settings/Profile)
+        :Display user settings;
+        :Allow profile updates;
+        
+    endswitch
+    
+endwhile (no)
+
+note right
+AI Detection Process runs continuously:
+
+1. IP Cameras stream video to AI Service
+2. AI Service processes frames with ML models
+3. When event detected:
+   - Create detection payload
+   - Send to Backend API
+   - Save event to MongoDB
+   - Broadcast via WebSocket
+4. Frontend receives real-time notification
+5. Update map markers and event list
+end note
+
+partition "Background Processes" {
+    start
+    :AI Service monitors camera streams;
+    
+    while (Processing video frames?) is (yes)
+        :Analyze frame with ML model;
+        
+        if (Event detected?) then (yes)
+            :Create detection payload;
+            :Send to Backend API;
+            :Validate and save to MongoDB;
+            :Broadcast via WebSocket;
+            :Update frontend in real-time;
+        endif
+    endwhile
+    stop
+}
+
+:User logs out;
+:Clear authentication token;
+stop
+
+@enduml
