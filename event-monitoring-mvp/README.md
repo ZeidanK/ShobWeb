@@ -2,66 +2,77 @@
 
 A comprehensive security event monitoring system with real-time video analysis, camera management, and interactive dashboards.
 
-## 🚀 Quick Start
+## 🚀 Getting Started
 
-### Prerequisites
+### New to this project? → **[SETUP.md](./SETUP.md)** 📖
 
-- **Node.js** 18+ and npm
-- **Python** 3.9+ 
-- **MongoDB** 6.0+
-- **Docker** and Docker Compose (optional)
+**Quick Setup (experienced users):**
 
-### Development Setup
+### 1. Install Prerequisites
+```bash
+# Install WSL2 (PowerShell as Administrator)
+wsl --install
 
-1. **Clone and Navigate**
-   ```bash
-   git clone <repository-url>
-   cd event-monitoring-mvp
-   ```
+# In WSL2, install Node.js
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+source ~/.bashrc
+nvm install --lts && nvm use --lts && nvm alias default lts/*
 
-2. **Start with Docker (Recommended)**
-   ```bash
-   docker-compose up -d
-   ```
+# Install MongoDB
+sudo apt update && sudo apt upgrade -y
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+sudo apt update && sudo apt install -y mongodb-org
+sudo systemctl start mongod && sudo systemctl enable mongod
 
-3. **Or Manual Setup**
-   
-   **Backend:**
-   ```bash
-   cd backend
-   npm install
-   npm run dev
-   ```
+# Install Python & Git
+sudo apt install -y python3.9 python3-pip git
+```
 
-   **Frontend:**
-   ```bash
-   cd frontend
-   npm install
-   npm start
-   ```
+### 2. Setup Project
+```bash
+# Clone and setup
+git clone <your-repository-url>
+cd event-monitoring-mvp
+cp backend/.env.example backend/.env
+cp frontend/.env.example frontend/.env
+cp ai-service/.env.example ai-service/.env
 
-   **AI Service:**
-   ```bash
-   cd ai-service
-   pip install -r requirements.txt
-   python app.py
-   ```
+# Install dependencies
+cd backend && npm install && cd ..
+cd frontend && npm install && cd ..
+cd ai-service && pip3 install -r requirements.txt && cd ..
+```
 
-   **MongoDB:**
-   ```bash
-   mongod --dbpath ./data
-   ```
+### 3. Start Development
+```bash
+# Terminal 1: Backend
+cd backend && npm run dev
 
-### Access Points
+# Terminal 2: Frontend
+cd frontend && npm start
 
+# Create default users
+node setup_default_users.js
+```
+
+### 4. Login
 - **Frontend**: http://localhost:3000
-- **Backend API**: http://localhost:5000
-- **AI Service**: http://localhost:8000
-- **MongoDB**: localhost:27017
+- **Email**: admin@example.com
+- **Password**: password123
 
-## 🏗️ Architecture Overview
+## 🛠️ What's This Project?
 
-### System Components
+A full-stack security monitoring system with:
+
+- **🔐 Authentication**: JWT-based user management
+- **📹 Camera Management**: Add and monitor security cameras  
+- **🤖 AI Detection**: YOLOv8-powered object/person detection
+- **🗺️ Interactive Map**: Mapbox visualization of cameras/events
+- **📊 Dashboard**: Real-time metrics and system status
+- **🔔 Real-time Alerts**: WebSocket notifications
+
+## 📁 Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
@@ -86,16 +97,6 @@ A comprehensive security event monitoring system with real-time video analysis, 
                     │ • Logs          │
                     └─────────────────┘
 ```
-
-### Key Features
-
-- **🔐 Authentication**: JWT-based user authentication with role-based access
-- **📹 Camera Management**: Add, configure, and monitor security cameras
-- **🤖 AI Detection**: YOLOv8-powered real-time object and person detection
-- **🗺️ Interactive Map**: Mapbox integration for camera and event visualization
-- **📊 Dashboard**: Real-time metrics, charts, and system status
-- **🔔 Notifications**: Real-time alerts via WebSocket connections
-- **⚙️ Settings**: Comprehensive system configuration and preferences
 
 ## 📁 Project Structure
 

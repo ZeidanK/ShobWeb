@@ -1,432 +1,312 @@
-# Event Monitoring MVP - Complete Setup Guide
+# Setup Guide - Event Monitoring MVP
 
-## 🚀 Quick Start (Recommended)
+## 🎯 Prerequisites
 
-### Using Docker Compose (Easiest)
+This guide assumes you're using **Windows with WSL2** (recommended). For other systems, adapt the commands accordingly.
+
+### Step 1: Install WSL2 (Windows Users)
+
+```powershell
+# Run in PowerShell as Administrator
+wsl --install
+```
+
+This installs WSL2 and Ubuntu by default. **Restart your computer** when prompted.
+
+After restart, launch "Ubuntu" from Start menu and create a username/password.
+
+### Step 2: Update Ubuntu
+
 ```bash
-# Clone and navigate to project
-cd event-monitoring-mvp
+# In WSL2 Ubuntu terminal
+sudo apt update && sudo apt upgrade -y
+```
 
-# Copy environment files
+---
+
+## 📦 Install Dependencies
+
+### Step 3: Install Node.js (Latest LTS)
+
+```bash
+# Install NVM (Node Version Manager)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+
+# Restart terminal or reload bash
+source ~/.bashrc
+
+# Install latest Node.js LTS
+nvm install --lts
+nvm use --lts
+nvm alias default lts/*
+
+# Verify installation
+node --version  # Should show v20.x.x or v22.x.x
+npm --version   # Should show 9.x.x or 10.x.x
+```
+
+**Common Issue**: If `nvm` command not found, close and reopen your terminal.
+
+### Step 4: Install MongoDB
+
+```bash
+# Import MongoDB public GPG key
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+
+# Add MongoDB repository
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+
+# Update package list and install MongoDB
+sudo apt update
+sudo apt install -y mongodb-org
+
+# Start and enable MongoDB service
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+# Verify MongoDB is running
+sudo systemctl status mongod
+```
+
+**Should see**: `active (running)` in green.
+
+### Step 5: Install Python & Git
+
+```bash
+# Install Python 3.9 and Git
+sudo apt install -y python3.9 python3-pip python3.9-venv git
+
+# Verify installations
+python3 --version  # Should show Python 3.9.x
+git --version      # Should show git version
+```
+
+---
+
+## 🏗️ Project Setup
+
+### Step 6: Clone Repository
+
+```bash
+# Navigate to your preferred directory
+cd ~  # Ubuntu home directory
+# OR
+cd /mnt/c/Users/$USER/Documents  # Windows Documents folder
+
+# Clone the project
+git clone <your-repository-url>
+cd event-monitoring-mvp
+```
+
+### Step 7: Setup Environment Files
+
+```bash
+# Copy environment templates
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 cp ai-service/.env.example ai-service/.env
 
-# Start all services
-docker-compose up -d
-
-# Access the application
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:5000
-# AI Service: http://localhost:8000
+# These files contain default settings that work for local development
+# No need to edit them for basic setup
 ```
 
-Default login credentials:
-- **Email**: admin@example.com
-- **Password**: password123
-
-## 🛠️ Manual Setup (Development)
-
-### Prerequisites
-
-#### For Windows Users (WSL2 Setup)
-**We strongly recommend using WSL2 for the best development experience on Windows:**
-
-1. **Enable WSL2**:
-```bash
-# Open PowerShell as Administrator and run:
-wsl --install
-# This will install WSL2 and Ubuntu by default
-# Restart your computer when prompted
-```
-
-2. **Install Ubuntu 22.04 LTS** (if not automatically installed):
-```bash
-# In PowerShell:
-wsl --install -d Ubuntu-22.04
-```
-
-3. **Set up Ubuntu user**:
-   - When first launching Ubuntu, create a username and password
-   - This will be your Linux user (can be different from Windows)
-
-4. **Update Ubuntu packages**:
-```bash
-# In WSL2 Ubuntu terminal:
-sudo apt update && sudo apt upgrade -y
-```
-
-#### General Prerequisites
-- **Node.js 18+** and **npm 8+**
-- **Python 3.9+**
-- **MongoDB 6.0+**
-- **Git**
-
-### 1. MongoDB Setup
-
-#### Option A: Install MongoDB on WSL2 (Recommended for Windows)
+### Step 8: Install Project Dependencies
 
 ```bash
-# 1. Import MongoDB public GPG key
-curl -fsSL https://www.mongodb.org/static/pgp/server-7.0.asc | sudo gpg --dearmor -o /usr/share/keyrings/mongodb-server-7.0.gpg
-
-# 2. Add MongoDB repository
-echo "deb [ arch=amd64,arm64 signed-by=/usr/share/keyrings/mongodb-server-7.0.gpg ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-
-# 3. Update package list
-sudo apt update
-
-# 4. Install MongoDB
-sudo apt install -y mongodb-org
-
-# 5. Create MongoDB data directory
-sudo mkdir -p /data/db
-sudo chown -R $USER:$USER /data/db
-
-# 6. Start MongoDB manually (WSL2 doesn't use systemd by default)
-mongod --dbpath /data/db --fork --logpath /var/log/mongodb.log
-```
-
-#### Option B: Install MongoDB on Ubuntu/Linux
-
-```bash
-# For Ubuntu 22.04
-wget -qO - https://www.mongodb.org/static/pgp/server-7.0.asc | sudo apt-key add -
-echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/7.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-7.0.list
-sudo apt update
-sudo apt install -y mongodb-org
-
-# Start and enable MongoDB
-sudo systemctl start mongod
-sudo systemctl enable mongod
-```
-
-#### Option C: MongoDB with Docker (Alternative)
-
-```bash
-# Run MongoDB in a container
-docker run -d \
-  --name mongodb \
-  -p 27017:27017 \
-  -v mongodb_data:/data/db \
-  mongo:7.0
-
-# Verify it's running
-docker ps | grep mongodb
-```
-
-#### Verify MongoDB Installation
-
-```bash
-# Test MongoDB connection
-mongosh --eval "db.runCommand('ping')"
-
-# Should return: { ok: 1 }
-```
-
-### 2. Node.js Setup
-
-#### Install Node.js 18+ using NVM (Recommended)
-
-```bash
-# Install NVM
-curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
-
-# Reload your terminal or run:
-source ~/.bashrc
-
-# Install Node.js 18 LTS
-nvm install 18
-nvm use 18
-nvm alias default 18
-
-# Verify installation
-node -v    # Should show v18.x.x
-npm -v     # Should show 9.x.x or higher
-```
-
-### 3. Backend Setup
-
-```bash
+# Install backend dependencies (Node.js)
 cd backend
-
-# Install dependencies
 npm install
+cd ..
 
-# Environment setup
-cp .env.example .env
-# Edit .env file if needed (default values work for local development)
-
-# Initialize database with admin user
-mongosh event_monitoring < ../docker/mongo-init.js
-
-# Start development server
-npm run dev
-```
-
-**Backend will run on: http://localhost:5000**
-
-### 4. Frontend Setup
-
-```bash
+# Install frontend dependencies (React)
 cd frontend
-
-# Install dependencies
 npm install
+cd ..
 
-# Environment setup
-cp .env.example .env
-# Edit .env if you want to add Mapbox token for map functionality
-
-# Start development server
-npm start
-```
-
-**Frontend will run on: http://localhost:3000**
-
-### 5. AI Service Setup (Optional)
-
-```bash
+# Install AI service dependencies (Python)
 cd ai-service
-
-# Create virtual environment
-python -m venv venv
-
-# Activate virtual environment
-# On WSL2/Linux:
-source venv/bin/activate
-# On Windows Command Prompt:
-# venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Environment setup
-cp .env.example .env
-
-# Start service
-python app.py
+pip3 install -r requirements.txt
+cd ..
 ```
 
-**AI Service will run on: http://localhost:8000**
+**This will take a few minutes** - downloads and installs all required packages.
 
-## 🔧 Troubleshooting
+---
 
-### Common Issues and Solutions
+## 🚀 First Run
 
-#### MongoDB Issues
+### Step 9: Start the Backend
 
-**Problem**: MongoDB fails to start on WSL2
 ```bash
-# Solution: Start MongoDB manually
-mongod --dbpath /data/db --fork --logpath /var/log/mongodb.log
+# Make sure you're in the project root
+cd event-monitoring-mvp
 
-# Check if it's running
-ps aux | grep mongod
-```
-
-**Problem**: Permission denied when accessing MongoDB
-```bash
-# Solution: Fix permissions
-sudo chown -R $USER:$USER /data/db
-sudo chmod -R 755 /data/db
-```
-
-#### Node.js Issues
-
-**Problem**: npm version incompatible with Node.js
-```bash
-# Solution: Update to compatible Node.js version
-nvm install 18
-nvm use 18
-
-# Or update npm
-npm install -g npm@latest
-```
-
-**Problem**: Port already in use
-```bash
-# Find process using port 5000
-netstat -tulpn | grep 5000
-# Or on WSL2:
-lsof -i :5000
-
-# Kill the process
-kill -9 <process_id>
-```
-
-#### WSL2 Specific Issues
-
-**Problem**: Can't access localhost from Windows browser
-- **Solution**: Use `localhost` or `127.0.0.1` instead of WSL2 IP
-- WSL2 automatically forwards ports to Windows
-
-**Problem**: File permissions issues
-```bash
-# Solution: Set proper permissions
-chmod +x startup-scripts.sh
-sudo chown -R $USER:$USER /path/to/project
-```
-
-**Problem**: MongoDB data persistence
-```bash
-# Solution: Always use absolute paths for data directories
-mongod --dbpath /home/$USER/mongodb-data
-```
-
-### Environment Configuration
-
-#### Backend (.env)
-```bash
-# Required variables
-NODE_ENV=development
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/event_monitoring
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-JWT_EXPIRES_IN=24h
-
-# Optional
-CORS_ORIGIN=http://localhost:3000
-RATE_LIMIT_WINDOW_MS=900000
-RATE_LIMIT_MAX_REQUESTS=100
-```
-
-#### Frontend (.env)
-```bash
-# Required variables
-REACT_APP_API_URL=http://localhost:5000/api
-REACT_APP_SOCKET_URL=http://localhost:5000
-
-# Optional map configuration
-REACT_APP_MAPBOX_TOKEN=your-mapbox-access-token-here
-REACT_APP_DEFAULT_MAP_CENTER_LAT=40.7128
-REACT_APP_DEFAULT_MAP_CENTER_LNG=-74.0060
-REACT_APP_DEFAULT_MAP_ZOOM=10
-```
-
-## 📚 Development Workflow
-
-### 1. Daily Development Setup
-```bash
-# Start MongoDB (if not using Docker)
-mongod --dbpath /data/db --fork --logpath /var/log/mongodb.log
-
-# Terminal 1: Backend
+# Start backend in development mode
 cd backend && npm run dev
+```
+
+**You should see**:
+```
+🚀 Event Monitoring System Backend Started
+📡 Server running on port 5000
+🗄️ MongoDB connected successfully
+```
+
+**Leave this terminal open** - the backend needs to keep running.
+
+### Step 10: Start the Frontend (New Terminal)
+
+Open a **new WSL2 terminal** and run:
+
+```bash
+# Navigate to project
+cd ~/event-monitoring-mvp  # OR your project path
+
+# Start frontend
+cd frontend && npm start
+```
+
+**You should see**:
+```
+Local:            http://localhost:3000
+```
+
+Your **browser should automatically open** to http://localhost:3000
+
+### Step 11: Create Default Users
+
+Open a **third WSL2 terminal** and run:
+
+```bash
+# Navigate to project root
+cd ~/event-monitoring-mvp  # OR your project path
+
+# Create default admin and operator users
+node setup_default_users.js
+```
+
+**You should see**:
+```
+✅ Created user: admin
+✅ Created user: operator1
+✅ Created user: operator2
+🎉 Default users setup complete!
+```
+
+---
+
+## ✅ Verify Everything Works
+
+### Step 12: Login to the Application
+
+1. Go to http://localhost:3000 in your browser
+2. You should see a login page
+3. Login with:
+   - **Email**: `admin@example.com`
+   - **Password**: `password123`
+4. You should see the dashboard
+
+**Success!** 🎉 Your Event Monitoring System is now running.
+
+---
+
+## 🔄 Daily Usage
+
+After initial setup, starting the system is simple:
+
+### Quick Start Commands
+```bash
+# Terminal 1: Backend
+cd ~/event-monitoring-mvp/backend && npm run dev
 
 # Terminal 2: Frontend
-cd frontend && npm start
-
-# Terminal 3: AI Service (optional)
-cd ai-service && source venv/bin/activate && python app.py
+cd ~/event-monitoring-mvp/frontend && npm start
 ```
 
-### 2. Testing the Setup
-
-#### Verify Backend
+### Optional: AI Service
 ```bash
-curl http://localhost:5000/api/health
-# Should return: {"status":"ok","timestamp":"..."}
+# Terminal 3: AI Service (for object detection)
+cd ~/event-monitoring-mvp/ai-service && python3 app.py
 ```
 
-#### Verify Frontend
-- Open browser: http://localhost:3000
-- Should see login page
-- Try logging in with: admin@example.com / password123
-
-#### Verify Database
-```bash
-mongosh event_monitoring --eval "db.users.findOne()"
-# Should return the admin user document
-```
-
-### 3. Team Development Guidelines
-
-#### Before Starting Work
-1. Pull latest changes: `git pull origin main`
-2. Start all services (MongoDB, backend, frontend)
-3. Verify everything works with test login
-
-#### WSL2 Best Practices
-- Always work within WSL2 Ubuntu terminal
-- Use VS Code with WSL extension for seamless editing
-- Store project files in WSL2 filesystem for better performance
-- Access files via `\\wsl$\Ubuntu\home\username\projects`
-
-#### Environment Variables
-- **Never commit .env files** - they contain secrets
-- Always copy from .env.example when setting up
-- Ask team lead for production values if needed
-
-## 🐛 Known Issues
-
-1. **WSL2 Clock Sync**: Sometimes WSL2 clock gets out of sync
-   ```bash
-   # Fix by running:
-   sudo hwclock -s
-   ```
-
-2. **MongoDB on Windows**: Native MongoDB on Windows can be tricky
-   - Recommend using WSL2 + MongoDB in Linux environment
-   - Or use Docker for MongoDB
-
-3. **File Watching**: Sometimes file changes aren't detected
-   ```bash
-   # In package.json, use polling for file watcher
-   "scripts": {
-     "dev": "nodemon --legacy-watch src/app.ts"
-   }
-   ```
-
-## 🚀 Production Deployment
-
-**Note**: This setup is for development only. For production:
-
-1. Use proper MongoDB hosting (MongoDB Atlas, etc.)
-2. Set strong JWT secrets
-3. Configure proper CORS origins
-4. Use environment-specific configuration
-5. Enable HTTPS
-6. Set up proper logging and monitoring
-
-## 📞 Getting Help
-
-1. **Check logs**: Always check terminal outputs for error messages
-2. **Database issues**: Use `mongosh` to verify database state
-3. **Network issues**: Check if all ports are accessible
-4. **WSL2 issues**: Restart WSL2: `wsl --shutdown` then reopen terminal
-
-For team-specific issues, contact the project maintainer.
-
-## 📋 Quick Reference
-
-### Essential Commands
-```bash
-# Start MongoDB
-mongod --dbpath /data/db --fork --logpath /var/log/mongodb.log
-
-# Check MongoDB status
-ps aux | grep mongod
-
-# Test API
-curl http://localhost:5000/api/health
-
-# Update Node.js version
-nvm install 18 && nvm use 18
-
-# Reset project
-git pull origin main
-npm install
-cp .env.example .env
-```
-
-### Default Ports
+**URLs**:
 - Frontend: http://localhost:3000
-- Backend: http://localhost:5000
-- AI Service: http://localhost:8000
-- MongoDB: mongodb://localhost:27017
+- Backend API: http://localhost:5000/api
+- Health Check: http://localhost:5000/health
 
-### Default Credentials
-- Email: admin@example.com
-- Password: password123
-- Role: admin
+---
+
+## 🆘 Common Issues
+
+### MongoDB Won't Start
+```bash
+# Check MongoDB status
+sudo systemctl status mongod
+
+# If not running, start it
+sudo systemctl start mongod
+
+# Check MongoDB logs for errors
+sudo journalctl -u mongod
+```
+
+### Node.js Version Issues
+```bash
+# Check current version
+node --version
+
+# If old version, switch to latest
+nvm use --lts
+
+# Set as default
+nvm alias default lts/*
+```
+
+### Port Already in Use
+```bash
+# Check what's using port 3000 or 5000
+sudo lsof -i :3000
+sudo lsof -i :5000
+
+# Kill the process if needed
+sudo kill -9 <PID>
+```
+
+### Can't Login
+```bash
+# Check if users exist
+mongosh
+use event_monitoring
+db.users.find({}, {email: 1, username: 1})
+
+# If empty, recreate users
+exit
+node setup_default_users.js
+```
+
+### Need to Reset Everything
+```bash
+# Stop all Node.js processes
+pkill -f node
+
+# Restart MongoDB
+sudo systemctl restart mongod
+
+# Clear and recreate users
+mongosh --eval "use event_monitoring; db.users.deleteMany({})"
+node setup_default_users.js
+
+# Restart services
+cd backend && npm run dev &
+cd frontend && npm start &
+```
+
+---
+
+## 📚 Next Steps
+
+- See [DAILY_COMMANDS.md](./DAILY_COMMANDS.md) for copy-paste commands
+- Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for detailed problem solving
+- Explore the application features in the dashboard
+
+**Questions?** Check the troubleshooting guide or review the MongoDB commands in the daily commands file.
