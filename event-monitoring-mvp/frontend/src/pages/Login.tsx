@@ -16,55 +16,7 @@ import * as yup from 'yup';
 import { useDispatch } from 'react-redux';
 import { loginStart, loginSuccess, loginFailure } from '../store/store';
 import { toast } from 'react-toastify';
-
-// Mock API calls - replace with actual API
-const mockLogin = async (email: string, password: string) => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Mock successful login for admin user
-  if (email === 'admin@example.com' && password === 'password123') {
-    return {
-      success: true,
-      data: {
-        token: 'mock-jwt-token',
-        user: {
-          _id: '1',
-          username: 'admin',
-          email: 'admin@example.com',
-          role: 'admin' as const,
-          isActive: true,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }
-      }
-    };
-  }
-  
-  throw new Error('Invalid email or password');
-};
-
-const mockRegister = async (username: string, email: string, password: string) => {
-  // Simulate API delay
-  await new Promise(resolve => setTimeout(resolve, 1000));
-  
-  // Mock successful registration
-  return {
-    success: true,
-    data: {
-      token: 'mock-jwt-token',
-      user: {
-        _id: Math.random().toString(),
-        username,
-        email,
-        role: 'operator' as const,
-        isActive: true,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      }
-    }
-  };
-};
+import { authService } from '../services/authService';
 
 const loginValidationSchema = yup.object({
   email: yup
@@ -116,10 +68,20 @@ const Login: React.FC = () => {
         dispatch(loginStart());
         
         const response = isRegistering 
-          ? await mockRegister(values.username, values.email, values.password)
-          : await mockLogin(values.email, values.password);
+          ? await authService.register({
+              username: values.username,
+              email: values.email,
+              password: values.password,
+            })
+          : await authService.login({
+              email: values.email,
+              password: values.password,
+            });
         
         if (response.success) {
+          // Store token in localStorage
+          localStorage.setItem('token', response.data.token);
+          
           dispatch(loginSuccess({
             user: response.data.user,
             token: response.data.token,
@@ -129,7 +91,7 @@ const Login: React.FC = () => {
       } catch (error: any) {
         setError(error.message || (isRegistering ? 'Registration failed' : 'Login failed'));
         dispatch(loginFailure());
-        toast.error(isRegistering ? 'Registration failed' : 'Login failed');
+        toast.error(error.message || (isRegistering ? 'Registration failed' : 'Login failed'));
       }
     },
   });

@@ -1,5 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import Joi from 'joi';
+import { validationResult } from 'express-validator';
 
 // User registration validation
 export const validateRegistration = (req: Request, res: Response, next: NextFunction): void => {
@@ -117,6 +118,19 @@ export const validateUser = (req: Request, res: Response, next: NextFunction): v
   const { error } = schema.validate(req.body);
   if (error) {
     res.status(400).json({ message: error.details[0].message });
+    return;
+  }
+  next();
+};
+
+// General validation middleware for express-validator
+export const validation = (req: Request, res: Response, next: NextFunction): void => {
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    res.status(400).json({
+      message: 'Validation failed',
+      errors: errors.array()
+    });
     return;
   }
   next();

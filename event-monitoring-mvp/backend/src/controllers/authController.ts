@@ -16,7 +16,7 @@
 import { Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
-import User from '../models/User';
+import { User } from '../models/User';
 
 /**
  * JWT Token Generation Utility
@@ -73,16 +73,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       return;
     }
 
-    // Hash password with salt for security
-    const saltRounds = 12; // High security salt rounds
-    const salt = await bcrypt.genSalt(saltRounds);
-    const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create new user document
+    // Create new user document - password will be hashed by the model's pre-save hook
     const user = await User.create({
       username,
       email,
-      password: hashedPassword,
+      password: password, // Raw password - will be hashed automatically by User model
       role: role || 'operator', // Default role is 'operator'
       isActive: true,
     });
@@ -94,12 +89,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     res.status(201).json({
       success: true,
       message: 'User registered successfully',
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
+      data: {
+        token,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+        },
       },
     });
   } catch (error) {
@@ -147,13 +144,15 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     res.json({
       success: true,
-      token,
-      user: {
-        id: user._id,
-        username: user.username,
-        email: user.email,
-        role: user.role,
-        lastLogin: user.lastLogin,
+      data: {
+        token,
+        user: {
+          id: user._id,
+          username: user.username,
+          email: user.email,
+          role: user.role,
+          lastLogin: user.lastLogin,
+        },
       },
     });
   } catch (error) {

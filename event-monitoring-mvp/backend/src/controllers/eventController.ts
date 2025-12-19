@@ -1,6 +1,6 @@
 import { Request, Response } from 'express';
 import { body, query, validationResult } from 'express-validator';
-import Event, { IEvent } from '../models/Event';
+import { Event, IEvent } from '../models/Event';
 import mongoose from 'mongoose';
 
 // Validation rules for creating events
@@ -174,6 +174,38 @@ export const createEvent = async (req: Request, res: Response) => {
   }
 };
 
+// @desc    Get all events with filtering, pagination, and search
+// @route   GET /api/events
+// @access  Private
+export const getEvents = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
+
+    // Build query filters
+    const filter: any = {};
+
+    // Add other filters as needed
+    if (req.query.status) {
+      filter.status = req.query.status;
+    }
+
+    if (req.query.severity) {
+      filter.severity = req.query.severity;
+    }
+
+    const events = await Event.find(filter)
+      .populate('cameraId', 'name location')
+      .populate('assignedTo', 'username email')
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit);
+
+    const total = await Event.countDocuments(filter);
+    const pageNum = page;
+    const limitNum = limit;
+
     res.json({
       success: true,
       count: events.length,
@@ -212,57 +244,6 @@ export const getEvent = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('Get event error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-    });
-  }
-};
-
-// @desc    Create event
-// @route   POST /api/events
-// @access  Private
-export const createEvent = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const {
-      title,
-      type,
-      severity,
-      camera,
-      detectionData,
-      metadata,
-    } = req.body;
-
-    // Verify camera exists
-    const cameraDoc = await Camera.findById(camera);
-    if (!cameraDoc) {
-      res.status(400).json({
-        success: false,
-        message: 'Camera not found',
-      });
-      return;
-    }
-
-    const event = await Event.create({
-      title,
-      type,
-      severity: severity || 'medium',
-      camera,
-      detectionData,
-      metadata,
-      timestamp: new Date(),
-      status: 'open',
-    });
-
-    // Populate camera info
-    const populatedEvent = await Event.findById(event._id).populate('camera', 'name');
-
-    res.status(201).json({
-      success: true,
-      data: populatedEvent,
-    });
-  } catch (error) {
-    console.error('Create event error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',

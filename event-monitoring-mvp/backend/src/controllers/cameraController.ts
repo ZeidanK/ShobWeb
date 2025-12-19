@@ -1,6 +1,5 @@
 import { Request, Response } from 'express';
-import Camera from '../models/Camera';
-import { ICamera } from '../models/Camera';
+import { Camera, ICamera } from '../models/Camera';
 
 // @desc    Get all cameras
 // @route   GET /api/cameras

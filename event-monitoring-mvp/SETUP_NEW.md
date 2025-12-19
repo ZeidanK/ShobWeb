@@ -57,12 +57,63 @@ sudo apt update && sudo apt upgrade -y
 ```
 
 #### General Prerequisites
-- **Node.js 18+** and **npm 8+**
+- **Node.js Latest** and **npm Latest** (CRITICAL: Latest version required for best performance and features)
 - **Python 3.9+**
 - **MongoDB 6.0+**
 - **Git**
 
-### 1. MongoDB Setup
+### 1. Node.js Latest Setup (WSL2 - REQUIRED)
+
+⚠️ **CRITICAL**: The application requires the latest Node.js for best performance and modern JavaScript features. **If you have NVM installed, it will override system Node.js installations.**
+
+```bash
+# 1. Update package lists
+sudo apt update && sudo apt upgrade -y
+
+# 2. Check if NVM is installed and active
+nvm --version 2>/dev/null && echo "NVM is installed" || echo "NVM not found"
+node --version  # Check current Node.js version
+
+# 3. If NVM is installed (RECOMMENDED PATH):
+nvm install --lts          # Install latest LTS version  
+nvm use --lts              # Switch to latest LTS
+nvm alias default lts/*    # Set as default
+node --version             # Verify version (should be v20+ or v22+)
+npm --version              # Verify npm works
+
+# 4. If you prefer system Node.js (without NVM):
+# WARNING: This removes NVM completely
+export NVM_DIR=""
+unset NVM_DIR NVM_CD_FLAGS NVM_BIN NVM_INC
+export PATH=$(echo $PATH | sed 's/:\/root\/.nvm\/versions\/node\/[^:]*\/bin//g')
+curl -fsSL https://deb.nodesource.com/setup_lts.x | sudo -E bash -
+sudo apt remove --purge nodejs npm libnode* -y
+sudo apt autoremove -y
+sudo apt install nodejs -y
+```
+
+**If you encounter Node.js/npm version conflicts:**
+```bash
+# Most common issue: NVM overriding system Node.js
+nvm current                # Check what NVM is using
+which node                 # Should show NVM path if NVM is active
+
+# Solution: Use NVM to install latest version
+nvm install --lts          # Install latest LTS
+nvm use --lts              # Use latest LTS  
+nvm alias default lts/*    # Set as permanent default
+node --version             # Should show v20+ or v22+
+
+# If npm still shows errors after Node.js update:
+npm install -g npm@latest  # Update npm to latest compatible version
+
+# Alternative: Remove NVM completely (if you prefer system Node.js)
+rm -rf ~/.nvm
+# Remove NVM lines from ~/.bashrc or ~/.zshrc
+# Then install system Node.js as shown above
+```
+
+### 2. MongoDB Setup
 
 #### Option A: Install MongoDB on WSL2 (Recommended for Windows)
 
