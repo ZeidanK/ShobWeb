@@ -1,0 +1,25 @@
+@startuml User Authentication Flow
+!theme plain
+title Event Monitoring System - User Authentication Flow
+
+actor User
+participant "React App" as Frontend
+participant "Backend API" as Backend
+database "MongoDB" as DB
+
+User -> Frontend: Enter credentials
+Frontend -> Backend: POST /auth/login\n{username, password}
+Backend -> DB: Query users collection\ndb.users.findOne({username})
+DB -> Backend: User document
+Backend -> Backend: Validate password\n(bcrypt compare)
+alt Credentials Valid
+    Backend -> Backend: Generate JWT token
+    Backend -> Frontend: 200 OK\n{success: true, token, user}
+    Frontend -> Frontend: Store token in localStorage
+    Frontend -> User: Redirect to dashboard
+else Invalid Credentials
+    Backend -> Frontend: 401 Unauthorized\n{success: false, message}
+    Frontend -> User: Show error message
+end
+
+@enduml

@@ -1,0 +1,63 @@
+@startuml Database Schema Relationships
+!theme plain
+title Event Monitoring System - Database Schema
+
+entity "users" {
+    * _id : ObjectId
+    --
+    * username : String
+    * email : String
+    * password : String (hashed)
+    * role : String
+    * createdAt : Date
+    * updatedAt : Date
+}
+
+entity "cameras" {
+    * _id : ObjectId
+    --
+    * name : String
+    * description : String
+    * streamUrl : String
+    * status : String
+    * type : String
+    * location : Object
+    * settings : Object
+    * isActive : Boolean
+    * createdBy : ObjectId
+    * createdAt : Date
+    * updatedAt : Date
+}
+
+entity "events" {
+    * _id : ObjectId
+    --
+    * type : String
+    * severity : String
+    * location : Object
+    * camera : ObjectId
+    * timestamp : Date
+    * description : String
+    * resolved : Boolean
+    * resolvedBy : ObjectId
+    * metadata : Object
+    * createdAt : Date
+}
+
+users ||--o{ cameras : "createdBy"
+cameras ||--o{ events : "camera"
+users ||--o{ events : "resolvedBy"
+
+note as N2
+MongoDB Collections:
+- users: System operators/admins
+- cameras: IP camera configurations
+- events: AI-detected security events
+
+Relationships:
+- One user can create many cameras
+- One camera can generate many events
+- One user can resolve many events
+end note
+
+@enduml

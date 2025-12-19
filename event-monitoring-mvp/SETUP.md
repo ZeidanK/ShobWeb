@@ -1,319 +1,312 @@
-# Event Monitoring MVP - Complete Setup Guide
+# Setup Guide - Event Monitoring MVP
 
-## 🚀 Quick Start (Recommended)
+## 🎯 Prerequisites
 
-### Using Docker Compose (Easiest)
+This guide assumes you're using **Windows with WSL2** (recommended). For other systems, adapt the commands accordingly.
+
+### Step 1: Install WSL2 (Windows Users)
+
+```powershell
+# Run in PowerShell as Administrator
+wsl --install
+```
+
+This installs WSL2 and Ubuntu by default. **Restart your computer** when prompted.
+
+After restart, launch "Ubuntu" from Start menu and create a username/password.
+
+### Step 2: Update Ubuntu
+
 ```bash
-# Clone and navigate to project
-cd event-monitoring-mvp
+# In WSL2 Ubuntu terminal
+sudo apt update && sudo apt upgrade -y
+```
 
-# Copy environment files
+---
+
+## 📦 Install Dependencies
+
+### Step 3: Install Node.js (Latest LTS)
+
+```bash
+# Install NVM (Node Version Manager)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.3/install.sh | bash
+
+# Restart terminal or reload bash
+source ~/.bashrc
+
+# Install latest Node.js LTS
+nvm install --lts
+nvm use --lts
+nvm alias default lts/*
+
+# Verify installation
+node --version  # Should show v20.x.x or v22.x.x
+npm --version   # Should show 9.x.x or 10.x.x
+```
+
+**Common Issue**: If `nvm` command not found, close and reopen your terminal.
+
+### Step 4: Install MongoDB
+
+```bash
+# Import MongoDB public GPG key
+wget -qO - https://www.mongodb.org/static/pgp/server-6.0.asc | sudo apt-key add -
+
+# Add MongoDB repository
+echo "deb [ arch=amd64,arm64 ] https://repo.mongodb.org/apt/ubuntu jammy/mongodb-org/6.0 multiverse" | sudo tee /etc/apt/sources.list.d/mongodb-org-6.0.list
+
+# Update package list and install MongoDB
+sudo apt update
+sudo apt install -y mongodb-org
+
+# Start and enable MongoDB service
+sudo systemctl start mongod
+sudo systemctl enable mongod
+
+# Verify MongoDB is running
+sudo systemctl status mongod
+```
+
+**Should see**: `active (running)` in green.
+
+### Step 5: Install Python & Git
+
+```bash
+# Install Python 3.9 and Git
+sudo apt install -y python3.9 python3-pip python3.9-venv git
+
+# Verify installations
+python3 --version  # Should show Python 3.9.x
+git --version      # Should show git version
+```
+
+---
+
+## 🏗️ Project Setup
+
+### Step 6: Clone Repository
+
+```bash
+# Navigate to your preferred directory
+cd ~  # Ubuntu home directory
+# OR
+cd /mnt/c/Users/$USER/Documents  # Windows Documents folder
+
+# Clone the project
+git clone <your-repository-url>
+cd event-monitoring-mvp
+```
+
+### Step 7: Setup Environment Files
+
+```bash
+# Copy environment templates
 cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 cp ai-service/.env.example ai-service/.env
 
-# Start all services
-docker-compose up -d
-
-# Access the application
-# Frontend: http://localhost:3000
-# Backend API: http://localhost:5000
-# AI Service: http://localhost:8000
+# These files contain default settings that work for local development
+# No need to edit them for basic setup
 ```
 
-Default login credentials:
-- **Email**: admin@example.com
-- **Password**: password123
+### Step 8: Install Project Dependencies
 
-## 🛠️ Manual Setup (Development)
-
-### Prerequisites
-- Node.js 18+ and npm 8+
-- Python 3.9+
-- MongoDB 6.0+
-- Git
-
-### 1. Backend Setup
 ```bash
+# Install backend dependencies (Node.js)
 cd backend
-
-# Install dependencies
 npm install
+cd ..
 
-# Environment setup
-cp .env.example .env
-# Edit .env with your MongoDB connection string
-
-# Start development server
-npm run dev
-```
-
-Backend will run on: http://localhost:5000
-
-### 2. Frontend Setup
-```bash
+# Install frontend dependencies (React)
 cd frontend
-
-# Install dependencies
 npm install
+cd ..
 
-# Environment setup
-cp .env.example .env
-# Add your Mapbox token to .env
-
-# Start development server
-npm start
-```
-
-Frontend will run on: http://localhost:3000
-
-### 3. AI Service Setup
-```bash
+# Install AI service dependencies (Python)
 cd ai-service
-
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -r requirements.txt
-
-# Environment setup
-cp .env.example .env
-
-# Start service
-python app.py
+pip3 install -r requirements.txt
+cd ..
 ```
 
-AI Service will run on: http://localhost:8000
+**This will take a few minutes** - downloads and installs all required packages.
 
-### 4. Database Setup
+---
+
+## 🚀 First Run
+
+### Step 9: Start the Backend
+
 ```bash
-# Start MongoDB (if not using Docker)
-mongod
+# Make sure you're in the project root
+cd event-monitoring-mvp
 
-# Import initial data (optional)
-mongosh < docker/mongo-init.js
+# Start backend in development mode
+cd backend && npm run dev
 ```
 
-## 📁 Project Structure
-
+**You should see**:
 ```
-event-monitoring-mvp/
-├── backend/              # Node.js/Express API
-│   ├── src/
-│   │   ├── controllers/  # Route handlers
-│   │   ├── models/       # MongoDB schemas
-│   │   ├── routes/       # API endpoints
-│   │   ├── middleware/   # Auth, validation, etc.
-│   │   ├── services/     # Business logic
-│   │   └── utils/        # Helper functions
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── .env.example
-├── frontend/             # React web app
-│   ├── src/
-│   │   ├── components/   # UI components
-│   │   ├── pages/        # Page components
-│   │   ├── store/        # Redux store
-│   │   ├── services/     # API clients
-│   │   └── utils/        # Helpers
-│   ├── package.json
-│   ├── tsconfig.json
-│   └── .env.example
-├── ai-service/           # Python AI service
-│   ├── src/
-│   │   ├── models/       # AI models
-│   │   ├── services/     # Detection logic
-│   │   └── utils/        # Helpers
-│   ├── requirements.txt
-│   ├── app.py
-│   └── .env.example
-├── docker/               # Database config
-├── docker-compose.yml    # Full stack deployment
-└── README.md            # This file
+🚀 Event Monitoring System Backend Started
+📡 Server running on port 5000
+🗄️ MongoDB connected successfully
 ```
 
-## 🔧 Environment Configuration
+**Leave this terminal open** - the backend needs to keep running.
 
-### Backend (.env)
+### Step 10: Start the Frontend (New Terminal)
+
+Open a **new WSL2 terminal** and run:
+
 ```bash
-NODE_ENV=development
-PORT=5000
-MONGODB_URI=mongodb://localhost:27017/event_monitoring
-JWT_SECRET=your-super-secret-jwt-key
-AI_SERVICE_URL=http://localhost:8000
-FRONTEND_URL=http://localhost:3000
+# Navigate to project
+cd ~/event-monitoring-mvp  # OR your project path
+
+# Start frontend
+cd frontend && npm start
 ```
 
-### Frontend (.env)
+**You should see**:
+```
+Local:            http://localhost:3000
+```
+
+Your **browser should automatically open** to http://localhost:3000
+
+### Step 11: Create Default Users
+
+Open a **third WSL2 terminal** and run:
+
 ```bash
-REACT_APP_API_URL=http://localhost:5000/api
-REACT_APP_SOCKET_URL=http://localhost:5000
-REACT_APP_MAPBOX_TOKEN=your-mapbox-token-here
+# Navigate to project root
+cd ~/event-monitoring-mvp  # OR your project path
+
+# Create default admin and operator users
+node setup_default_users.js
 ```
 
-### AI Service (.env)
+**You should see**:
+```
+✅ Created user: admin
+✅ Created user: operator1
+✅ Created user: operator2
+🎉 Default users setup complete!
+```
+
+---
+
+## ✅ Verify Everything Works
+
+### Step 12: Login to the Application
+
+1. Go to http://localhost:3000 in your browser
+2. You should see a login page
+3. Login with:
+   - **Email**: `admin@example.com`
+   - **Password**: `password123`
+4. You should see the dashboard
+
+**Success!** 🎉 Your Event Monitoring System is now running.
+
+---
+
+## 🔄 Daily Usage
+
+After initial setup, starting the system is simple:
+
+### Quick Start Commands
 ```bash
-API_URL=http://localhost:5000/api
-MODEL_PATH=./models
-CONFIDENCE_THRESHOLD=0.5
-DEVICE=cpu
+# Terminal 1: Backend
+cd ~/event-monitoring-mvp/backend && npm run dev
+
+# Terminal 2: Frontend
+cd ~/event-monitoring-mvp/frontend && npm start
 ```
 
-## 📋 API Endpoints
-
-### Authentication
-- `POST /api/auth/login` - User login
-- `POST /api/auth/register` - User registration
-- `GET /api/auth/profile` - Get user profile
-
-### Cameras
-- `GET /api/cameras` - List all cameras
-- `POST /api/cameras` - Create new camera
-- `GET /api/cameras/:id` - Get camera details
-- `PUT /api/cameras/:id` - Update camera
-- `DELETE /api/cameras/:id` - Delete camera
-
-### Events
-- `GET /api/events` - List events (with filtering)
-- `POST /api/events` - Create new event
-- `GET /api/events/:id` - Get event details
-- `PATCH /api/events/:id/acknowledge` - Acknowledge event
-- `PATCH /api/events/:id/resolve` - Resolve event
-
-### AI Service
-- `GET /health` - Health check
-- `POST /start-detection` - Start camera detection
-- `POST /stop-detection/:id` - Stop camera detection
-
-## 🎯 MVP Features
-
-✅ **Authentication**: JWT-based login/logout  
-✅ **Camera Management**: Add, edit, delete cameras  
-✅ **Live Video**: Stream from IP cameras  
-✅ **AI Detection**: People and vehicle detection  
-✅ **Event Management**: View, acknowledge, resolve events  
-✅ **Map View**: Camera locations and event visualization  
-✅ **Real-time Updates**: Socket.IO for live data  
-✅ **Role-based Access**: Admin and operator roles  
-
-## 🚧 Troubleshooting
-
-### Common Issues
-
-**1. Port already in use:**
+### Optional: AI Service
 ```bash
-# Find and kill process
-sudo lsof -t -i:3000 | xargs kill -9  # Frontend
-sudo lsof -t -i:5000 | xargs kill -9  # Backend
-sudo lsof -t -i:8000 | xargs kill -9  # AI Service
+# Terminal 3: AI Service (for object detection)
+cd ~/event-monitoring-mvp/ai-service && python3 app.py
 ```
 
-**2. MongoDB connection failed:**
+**URLs**:
+- Frontend: http://localhost:3000
+- Backend API: http://localhost:5000/api
+- Health Check: http://localhost:5000/health
+
+---
+
+## 🆘 Common Issues
+
+### MongoDB Won't Start
 ```bash
 # Check MongoDB status
 sudo systemctl status mongod
-# Start MongoDB
+
+# If not running, start it
 sudo systemctl start mongod
+
+# Check MongoDB logs for errors
+sudo journalctl -u mongod
 ```
 
-**3. Dependencies not installing:**
+### Node.js Version Issues
 ```bash
-# Clear npm cache
-npm cache clean --force
-rm -rf node_modules package-lock.json
-npm install
+# Check current version
+node --version
 
-# For Python dependencies
-pip install --upgrade pip
-pip install -r requirements.txt --force-reinstall
+# If old version, switch to latest
+nvm use --lts
+
+# Set as default
+nvm alias default lts/*
 ```
 
-**4. Docker issues:**
+### Port Already in Use
 ```bash
-# Reset Docker
-docker-compose down -v
-docker system prune -f
-docker-compose up -d --build
+# Check what's using port 3000 or 5000
+sudo lsof -i :3000
+sudo lsof -i :5000
+
+# Kill the process if needed
+sudo kill -9 <PID>
 ```
 
-## 📱 Usage Guide
-
-### 1. Login
-- Use default admin credentials or create new users
-- Admins can manage users, cameras, and all events
-- Operators can view events and acknowledge them
-
-### 2. Camera Management
-- Add IP cameras with RTSP/HTTP stream URLs
-- Set camera locations for map visualization
-- Configure detection settings
-
-### 3. Event Monitoring
-- View real-time events from AI detection
-- Filter by type, severity, status, date range
-- Acknowledge and resolve events
-- Add notes and assign to operators
-
-### 4. Map View
-- See camera locations on interactive map
-- View events clustered by location
-- Click markers for camera/event details
-
-## 🔄 Development Workflow
-
-### Making Changes
-1. **Frontend**: Edit files in `frontend/src/`, changes auto-reload
-2. **Backend**: Edit files in `backend/src/`, restart with `npm run dev`
-3. **AI Service**: Edit `ai-service/app.py`, restart with `python app.py`
-
-### Testing
+### Can't Login
 ```bash
-# Frontend tests
-cd frontend && npm test
+# Check if users exist
+mongosh
+use event_monitoring
+db.users.find({}, {email: 1, username: 1})
 
-# Backend tests (when implemented)
-cd backend && npm test
-
-# API testing with curl
-curl http://localhost:5000/health
-curl http://localhost:8000/health
+# If empty, recreate users
+exit
+node setup_default_users.js
 ```
 
-## 🚀 Deployment
-
-### Production Build
+### Need to Reset Everything
 ```bash
-# Build frontend
-cd frontend && npm run build
+# Stop all Node.js processes
+pkill -f node
 
-# Build backend
-cd backend && npm run build
+# Restart MongoDB
+sudo systemctl restart mongod
 
-# Deploy with Docker
-docker-compose -f docker-compose.prod.yml up -d
+# Clear and recreate users
+mongosh --eval "use event_monitoring; db.users.deleteMany({})"
+node setup_default_users.js
+
+# Restart services
+cd backend && npm run dev &
+cd frontend && npm start &
 ```
 
-### Environment Variables for Production
-- Change `JWT_SECRET` to a strong random string
-- Use production MongoDB URI
-- Set `NODE_ENV=production`
-- Configure proper CORS origins
-- Use HTTPS URLs
+---
 
-## 📞 Support
+## 📚 Next Steps
 
-For issues or questions:
-1. Check this README and individual service READMEs
-2. Review application logs in browser console and terminal
-3. Check Docker logs: `docker-compose logs [service-name]`
+- See [DAILY_COMMANDS.md](./DAILY_COMMANDS.md) for copy-paste commands
+- Check [TROUBLESHOOTING.md](./TROUBLESHOOTING.md) for detailed problem solving
+- Explore the application features in the dashboard
 
-## 🎯 Next Steps
-
-After the MVP is running:
-1. **Add Real Cameras**: Configure actual IP camera streams
-2. **Mapbox Setup**: Get API token for map functionality  
-3. **Notifications**: Implement email/SMS alerts
-4. **Analytics**: Add dashboards and reporting
-5. **Mobile App**: Build React Native companion app
+**Questions?** Check the troubleshooting guide or review the MongoDB commands in the daily commands file.

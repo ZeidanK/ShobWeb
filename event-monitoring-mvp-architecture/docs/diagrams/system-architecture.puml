@@ -1,0 +1,68 @@
+@startuml System Architecture Overview
+!theme plain
+title Event Monitoring System - Overall Architecture
+
+package "Frontend (React + TypeScript)" {
+    component [React Router] as Router
+    component [Material-UI Components] as UI
+    component [Leaflet Map] as Map
+    component [WebSocket Client] as WSClient
+    component [Data Service] as DataSvc
+}
+
+package "Backend (Node.js + Express)" {
+    component [Express API Server] as API
+    component [JWT Authentication] as Auth
+    component [WebSocket Server] as WSServer
+    component [Mongoose ODM] as ODM
+}
+
+package "AI Service (Python)" {
+    component [Video Processing] as VideoProc
+    component [ML Models] as ML
+    component [Event Detection] as EventDetect
+}
+
+database "MongoDB" {
+    collections users
+    collections cameras
+    collections events
+}
+
+cloud "External Services" {
+    component [IP Cameras] as Cameras
+    component [OpenStreetMap] as OSM
+}
+
+' Frontend connections
+Router --> UI
+UI --> Map
+UI --> DataSvc
+WSClient --> WSServer
+DataSvc --> API
+
+' Backend connections
+API --> Auth
+API --> ODM
+WSServer --> API
+ODM --> MongoDB
+
+' AI Service connections
+Cameras --> VideoProc
+VideoProc --> ML
+ML --> EventDetect
+EventDetect --> API
+
+' External connections
+Map --> OSM
+
+note as N1
+Data flows:
+1. User authentication via JWT
+2. Camera management (CRUD)
+3. Real-time event detection
+4. Live video streaming
+5. Interactive map with filters
+end note
+
+@enduml

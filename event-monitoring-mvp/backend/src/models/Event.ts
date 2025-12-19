@@ -3,16 +3,19 @@ import mongoose, { Document, Schema } from 'mongoose';
 export interface IEvent extends Document {
   title: string;
   description?: string;
-  type: 'person_detected' | 'vehicle_detected' | 'motion_detected' | 'unauthorized_access' | 'other';
-  severity: 'low' | 'medium' | 'high' | 'critical';
-  status: 'open' | 'acknowledged' | 'investigating' | 'resolved' | 'closed';
-  cameraId: mongoose.Types.ObjectId;
+  type: 'security_incident' | 'traffic_violation' | 'emergency' | 'maintenance_needed' | 'user_report' | 'system_alert' | 'motion_detected' | 'person_detected' | 'vehicle_detected' | 'unauthorized_access' | 'suspicious_activity' | 'other';
+  severity: 'low' | 'medium' | 'high' | 'critical' | 'emergency';
+  priority: 1 | 2 | 3 | 4 | 5; // 1 = highest, 5 = lowest
+  status: 'pending' | 'acknowledged' | 'investigating' | 'resolved' | 'closed' | 'dismissed';
+  cameraId?: mongoose.Types.ObjectId; // Optional for user reports
+  detectionId?: mongoose.Types.ObjectId; // Link to original detection if promoted
   location: {
     coordinates: [number, number]; // [longitude, latitude]
     address?: string;
+    accuracy?: number; // GPS accuracy in meters
   };
-  detectionData: {
-    confidence: number;
+  detectionData?: {
+    confidence?: number;
     boundingBox?: {
       x: number;
       y: number;
@@ -21,23 +24,58 @@ export interface IEvent extends Document {
     };
     objectCount?: number;
     aiModel?: string;
+    detectionTimestamp?: Date;
   };
   media: {
-    imageUrl?: string;
-    videoUrl?: string;
-    thumbnailUrl?: string;
+    images: string[]; // Array of image URLs
+    videos: string[]; // Array of video URLs
+    thumbnails: string[]; // Array of thumbnail URLs
+    attachments: Array<{
+      fileName: string;
+      fileUrl: string;
+      fileType: string;
+      fileSize: number;
+      uploadedAt: Date;
+    }>;
+  };
+  reporter: {
+    userId?: mongoose.Types.ObjectId; // If reported by registered user
+    name?: string; // For anonymous reports
+    email?: string;
+    phone?: string;
+    isAnonymous: boolean;
   };
   assignedTo?: mongoose.Types.ObjectId;
   acknowledgedBy?: mongoose.Types.ObjectId;
   acknowledgedAt?: Date;
   resolvedBy?: mongoose.Types.ObjectId;
   resolvedAt?: Date;
+  estimatedResolutionTime?: Date;
+  actualResolutionTime?: Date;
   notes: Array<{
     content: string;
     createdBy: mongoose.Types.ObjectId;
     createdAt: Date;
+    noteType: 'general' | 'investigation' | 'resolution' | 'escalation';
   }>;
   tags: string[];
+  customFields: Map<string, any>; // Flexible custom data
+  source: 'camera_system' | 'user_report' | 'ai_detection' | 'sensor_alert' | 'manual_entry' | 'mobile_app';
+  verified: boolean; // Whether the event has been verified by an operator
+  publiclyVisible: boolean; // Whether visible in public feeds
+  resolution: {
+    summary?: string;
+    actions: string[];
+    preventiveMeasures?: string[];
+    followUpRequired: boolean;
+    satisfactionRating?: number; // 1-5 if applicable
+  };
+  workflow: Array<{
+    status: string;
+    timestamp: Date;
+    userId: mongoose.Types.ObjectId;
+    notes?: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -57,24 +95,35 @@ const eventSchema = new Schema<IEvent>(
     type: {
       type: String,
       required: true,
-      enum: ['person_detected', 'vehicle_detected', 'motion_detected', 'unauthorized_access', 'other']
+      enum: ['security_incident', 'traffic_violation', 'emergency', 'maintenance_needed', 'user_report', 'system_alert', 'motion_detected', 'person_detected', 'vehicle_detected', 'unauthorized_access', 'suspicious_activity', 'other']
     },
     severity: {
       type: String,
       required: true,
-      enum: ['low', 'medium', 'high', 'critical'],
+      enum: ['low', 'medium', 'high', 'critical', 'emergency'],
       default: 'medium'
+    },
+    priority: {
+      type: Number,
+      required: true,
+      enum: [1, 2, 3, 4, 5],
+      default: 3
     },
     status: {
       type: String,
       required: true,
-      enum: ['open', 'acknowledged', 'investigating', 'resolved', 'closed'],
-      default: 'open'
+      enum: ['pending', 'acknowledged', 'investigating', 'resolved', 'closed', 'dismissed'],
+      default: 'pending'
     },
     cameraId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'Camera',
-      required: [true, 'Camera ID is required']
+      required: false // Optional for user reports
+    },
+    detectionId: {
+      type: mongoose.Schema.Types.ObjectId,
+      ref: 'Detection',
+      required: false
     },
     location: {
       type: {

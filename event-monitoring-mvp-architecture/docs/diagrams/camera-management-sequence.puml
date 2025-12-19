@@ -1,0 +1,46 @@
+@startuml Camera Management Flow
+!theme plain
+title Event Monitoring System - Camera Management Flow
+
+actor User
+participant "React App" as Frontend
+participant "Backend API" as Backend
+database "MongoDB" as DB
+participant "IP Camera" as Camera
+
+== View Cameras ==
+User -> Frontend: Navigate to /cameras
+Frontend -> Backend: GET /api/cameras\nAuthorization: Bearer {token}
+Backend -> DB: Query cameras collection\ndb.cameras.find({createdBy: userId})
+DB -> Backend: Camera documents
+Backend -> Frontend: 200 OK\n{success: true, data: cameras[]}
+Frontend -> User: Display camera list
+
+== Add New Camera ==
+User -> Frontend: Click "Add Camera"
+Frontend -> User: Show AddCamera form
+User -> Frontend: Fill camera details\n(name, streamUrl, coordinates)
+Frontend -> Frontend: Validate form data\n(yup validation)
+Frontend -> Backend: POST /api/cameras\n{name, streamUrl, location, etc}
+Backend -> Backend: Validate JWT token
+Backend -> DB: Insert camera document\ndb.cameras.insertOne(cameraData)
+DB -> Backend: Created camera document
+Backend -> Frontend: 201 Created\n{success: true, data: camera}
+Frontend -> User: Success message\nRedirect to cameras list
+
+== Test Camera Connection ==
+User -> Frontend: Click "Test Connection"
+Frontend -> Frontend: Validate streamUrl exists
+Frontend -> Backend: POST /api/cameras/test\n{streamUrl}
+Backend -> Camera: Attempt connection\n(RTSP/HTTP request)
+alt Connection Successful
+    Camera -> Backend: Stream response
+    Backend -> Frontend: 200 OK\n{success: true, status: "connected"}
+    Frontend -> User: Show success indicator
+else Connection Failed
+    Camera -> Backend: Timeout/Error
+    Backend -> Frontend: 400 Bad Request\n{success: false, error: "connection_failed"}
+    Frontend -> User: Show error message
+end
+
+@enduml

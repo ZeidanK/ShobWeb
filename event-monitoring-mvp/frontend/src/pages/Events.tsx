@@ -21,9 +21,12 @@ import {
   Visibility as VisibilityIcon,
   CheckCircle as CheckCircleIcon,
   Assignment as AssignmentIcon,
+  Add as AddIcon,
 } from '@mui/icons-material';
+import { useNavigate } from 'react-router-dom';
 
 const Events: React.FC = () => {
+  const navigate = useNavigate();
   const [filters, setFilters] = useState({
     status: '',
     type: '',
@@ -92,12 +95,24 @@ const Events: React.FC = () => {
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
-      <Typography variant="h4" gutterBottom fontWeight="bold">
-        Event Management
-      </Typography>
-      <Typography variant="subtitle1" color="text.secondary" gutterBottom>
-        Monitor and manage security events from your camera network.
-      </Typography>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Box>
+          <Typography variant="h4" gutterBottom fontWeight="bold">
+            Event Management
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary" gutterBottom>
+            Monitor and manage security events from your camera network.
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => navigate('/events/submit')}
+          sx={{ height: 'fit-content' }}
+        >
+          Submit Event
+        </Button>
+      </Box>
 
       {/* Filters */}
       <Paper sx={{ p: 3, mt: 3 }}>

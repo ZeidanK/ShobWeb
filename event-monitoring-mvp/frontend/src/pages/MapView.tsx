@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -31,6 +31,7 @@ import {
   Divider,
   CardActions,
   Avatar,
+  Grid,
 } from '@mui/material';
 import {
   Layers as LayersIcon,
@@ -53,11 +54,14 @@ import {
   TileLayer,
   Marker,
   Popup,
+  useMapEvents,
 } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { Camera } from '../types/index';
 import { fetchCamerasData, fetchEventsData, SecurityEvent } from '../services/dataService';
+import MapContextMenu from '../components/MapContextMenu';
+import { useNavigate } from 'react-router-dom';
 
 // Fix for default markers in react-leaflet
 delete (L.Icon.Default.prototype as any)._getIconUrl;
@@ -91,23 +95,47 @@ const createCameraIcon = (status: 'online' | 'offline' | 'maintenance') => {
 };
 
 const MapView: React.FC = () => {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [selectedEvent, setSelectedEvent] = useState<SecurityEvent | null>(null);
   const [showCameras, setShowCameras] = useState(true);
   const [showEvents, setShowEvents] = useState(true);
+  const [showDetections, setShowDetections] = useState(true);
   const [showLayers, setShowLayers] = useState(false);
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [events, setEvents] = useState<SecurityEvent[]>([]);
+  const [detections, setDetections] = useState<any[]>([]);
   const [filteredCameras, setFilteredCameras] = useState<Camera[]>([]);
   const [filteredEvents, setFilteredEvents] = useState<SecurityEvent[]>([]);
+  const [filteredDetections, setFilteredDetections] = useState<any[]>([]);
   
   // Search and filter states
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [eventTypeFilter, setEventTypeFilter] = useState<string>('all');
   const [severityFilter, setSeverityFilter] = useState<string>('all');
+  const [detectionTypeFilter, setDetectionTypeFilter] = useState<string>('all');
+  const [reportSourceFilter, setReportSourceFilter] = useState<string>('all');
   const [showUnresolvedOnly, setShowUnresolvedOnly] = useState(false);
+  const [showPendingOnly, setShowPendingOnly] = useState(false);
+  
+  // Live notification states
+  const [liveNotifications, setLiveNotifications] = useState<any[]>([]);
+  const [showLiveNotifications, setShowLiveNotifications] = useState(true);
+  const [autoZoomToNew, setAutoZoomToNew] = useState(true);
+  
+  // Enhanced filtering categories
+  const eventTypes = ['all', 'security_incident', 'traffic_violation', 'emergency', 'maintenance_needed', 'user_report', 'system_alert'];
+  const detectionTypes = ['all', 'motion_detected', 'object_detected', 'anomaly_detected', 'user_submitted', 'ai_flagged'];
+  const reportSources = ['all', 'camera_system', 'user_report', 'ai_detection', 'sensor_alert', 'manual_entry'];
+  const severityLevels = ['all', 'low', 'medium', 'high', 'critical', 'emergency'];
+  
+  // Context menu states
+  const [contextMenu, setContextMenu] = useState<{
+    position: { x: number; y: number };
+    latLng: { lat: number; lng: number };
+  } | null>(null);
   
   // UI states
   const [filterAnchorEl, setFilterAnchorEl] = useState<HTMLElement | null>(null);
@@ -115,8 +143,8 @@ const MapView: React.FC = () => {
   const [showOverview, setShowOverview] = useState(true);
   const [selectedCameraDetails, setSelectedCameraDetails] = useState<Camera | null>(null);
 
-  // Fetch cameras and events from backend
-  const fetchCameras = async () => {
+  // Fetch cameras, events, and prepare for detections
+  const fetchData = async () => {
     setLoading(true);
     try {
       const [cameras, events] = await Promise.all([
@@ -126,11 +154,37 @@ const MapView: React.FC = () => {
       
       setCameras(cameras);
       setEvents(events);
+      
+      // Generate mock detections for demonstration (will be replaced with real API)
+      const mockDetections = generateMockDetections(cameras);
+      setDetections(mockDetections);
     } catch (error) {
       console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
+  };
+
+  // Generate mock detections for demonstration
+  const generateMockDetections = (cameras: Camera[]) => {
+    const detectionTypes = ['motion_detected', 'object_detected', 'user_submitted', 'ai_flagged'];
+    const sources = ['camera_system', 'user_report', 'ai_detection'];
+    
+    return cameras.slice(0, 8).map((camera, index) => ({
+      _id: `detection_${index}`,
+      type: detectionTypes[index % detectionTypes.length],
+      source: sources[index % sources.length],
+      location: {
+        coordinates: [camera.location.coordinates[0] + (Math.random() - 0.5) * 0.01, camera.location.coordinates[1] + (Math.random() - 0.5) * 0.01]
+      },
+      confidence: Math.random(),
+      status: index % 3 === 0 ? 'pending_review' : index % 3 === 1 ? 'investigating' : 'resolved',
+      timestamp: new Date(Date.now() - Math.random() * 24 * 60 * 60 * 1000),
+      description: `Detection reported: ${detectionTypes[index % detectionTypes.length].replace('_', ' ')}`,
+      cameraId: camera._id,
+      severity: index % 4 === 0 ? 'high' : index % 4 === 1 ? 'medium' : 'low',
+      isPromotedToEvent: index % 5 === 0
+    }));
   };
 
   // Apply filters
@@ -155,21 +209,38 @@ const MapView: React.FC = () => {
       const matchesType = eventTypeFilter === 'all' || event.type === eventTypeFilter;
       const matchesSeverity = severityFilter === 'all' || event.severity === severityFilter;
       const matchesResolved = !showUnresolvedOnly || !event.resolved;
+      const matchesSource = reportSourceFilter === 'all' || (event as any).source === reportSourceFilter;
       
-      return matchesSearch && matchesType && matchesSeverity && matchesResolved;
+      return matchesSearch && matchesType && matchesSeverity && matchesResolved && matchesSource;
+    });
+
+    // Filter detections (non-event reports)
+    let filteredDets = detections.filter(detection => {
+      const matchesSearch = searchTerm === '' || 
+        detection.description?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        detection.type.toLowerCase().includes(searchTerm.toLowerCase());
+      
+      const matchesType = detectionTypeFilter === 'all' || detection.type === detectionTypeFilter;
+      const matchesSource = reportSourceFilter === 'all' || detection.source === reportSourceFilter;
+      const matchesSeverity = severityFilter === 'all' || detection.severity === severityFilter;
+      const matchesPending = !showPendingOnly || detection.status === 'pending_review';
+      const notPromotedToEvent = !detection.isPromotedToEvent; // Only show detections that haven't become events
+      
+      return matchesSearch && matchesType && matchesSource && matchesSeverity && matchesPending && notPromotedToEvent;
     });
 
     setFilteredCameras(filteredCams);
     setFilteredEvents(filteredEvts);
+    setFilteredDetections(filteredDets);
   };
 
   useEffect(() => {
-    fetchCameras();
+    fetchData();
   }, []);
 
   useEffect(() => {
     applyFilters();
-  }, [cameras, events, searchTerm, statusFilter, eventTypeFilter, severityFilter, showUnresolvedOnly]);
+  }, [cameras, events, detections, searchTerm, statusFilter, eventTypeFilter, severityFilter, detectionTypeFilter, reportSourceFilter, showUnresolvedOnly, showPendingOnly]);
 
   // Create event markers with severity-based styling
   const createEventIcon = (severity: string) => {
@@ -193,6 +264,114 @@ const MapView: React.FC = () => {
       iconSize: [30, 30],
       iconAnchor: [15, 15],
     });
+  };
+
+  // Create detection marker icon
+  const createDetectionIcon = (detection: any) => {
+    const typeIcons = {
+      motion_detected: '🚶',
+      object_detected: '📦',
+      user_submitted: '👤',
+      ai_flagged: '🤖',
+      anomaly_detected: '⚠️'
+    };
+
+    const statusColors = {
+      pending_review: '#ff9800',
+      investigating: '#2196f3',
+      resolved: '#4caf50',
+      dismissed: '#9e9e9e'
+    };
+
+    const size = 25;
+    const icon = typeIcons[detection.type as keyof typeof typeIcons] || '📍';
+    const color = statusColors[detection.status as keyof typeof statusColors] || '#ff9800';
+
+    const svgIcon = `
+      <svg width="${size}" height="${size}" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="${size/2}" cy="${size/2}" r="${size/2-2}" 
+                fill="${color}" stroke="white" stroke-width="2" opacity="0.9"/>
+        <text x="${size/2}" y="${size/2+4}" text-anchor="middle" 
+              font-size="10" fill="white">
+          ${icon}
+        </text>
+      </svg>
+    `;
+
+    return L.divIcon({
+      html: svgIcon,
+      className: 'custom-detection-marker',
+      iconSize: [size, size],
+      iconAnchor: [size/2, size/2],
+    });
+  };
+
+  // Context menu handlers
+  const handleMapRightClick = (e: any) => {
+    const { lat, lng } = e.latlng;
+    const { x, y } = e.containerPoint;
+    
+    setContextMenu({
+      position: { x: x + e.target._container.offsetLeft, y: y + e.target._container.offsetTop },
+      latLng: { lat, lng }
+    });
+  };
+
+  const handleAddCamera = (position: { lat: number; lng: number }) => {
+    navigate('/cameras/add', { 
+      state: { 
+        coordinates: { 
+          latitude: position.lat, 
+          longitude: position.lng 
+        } 
+      } 
+    });
+  };
+
+  const handleCreateEvent = (position: { lat: number; lng: number }) => {
+    // TODO: Implement event creation modal
+    console.log('Creating event at:', position);
+  };
+
+  const handleViewCoverage = (position: { lat: number; lng: number }) => {
+    // TODO: Show camera coverage areas
+    console.log('Viewing coverage for:', position);
+  };
+
+  const handleAnalyzeArea = (position: { lat: number; lng: number }) => {
+    // TODO: Open area analysis tools
+    console.log('Analyzing area:', position);
+  };
+
+  const handleSetWaypoint = (position: { lat: number; lng: number }) => {
+    // TODO: Add waypoint functionality
+    console.log('Setting waypoint:', position);
+  };
+
+  const handleMeasureDistance = (position: { lat: number; lng: number }) => {
+    // TODO: Start distance measurement
+    console.log('Measuring distance from:', position);
+  };
+
+  const handleViewTimeline = (position: { lat: number; lng: number }) => {
+    // TODO: Show timeline for location
+    console.log('Viewing timeline for:', position);
+  };
+
+  // Map event handler component
+  const MapEventHandler = () => {
+    const map = useMapEvents({
+      contextmenu: (e) => {
+        const { lat, lng } = e.latlng;
+        const { x, y } = e.containerPoint;
+        
+        setContextMenu({
+          position: { x, y },
+          latLng: { lat, lng }
+        });
+      },
+    });
+    return null;
   };
 
   if (loading) {
@@ -238,7 +417,7 @@ const MapView: React.FC = () => {
 
         {/* Layer Controls */}
         <Collapse in={showLayers}>
-          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+          <Box sx={{ mt: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
             <FormControlLabel
               control={<Switch checked={showCameras} onChange={(e) => setShowCameras(e.target.checked)} />}
               label={`Cameras (${filteredCameras.length})`}
@@ -246,6 +425,10 @@ const MapView: React.FC = () => {
             <FormControlLabel
               control={<Switch checked={showEvents} onChange={(e) => setShowEvents(e.target.checked)} />}
               label={`Events (${filteredEvents.length})`}
+            />
+            <FormControlLabel
+              control={<Switch checked={showDetections} onChange={(e) => setShowDetections(e.target.checked)} />}
+              label={`Detections (${filteredDetections.length})`}
             />
             <FormControlLabel
               control={<Switch checked={showOverview} onChange={(e) => setShowOverview(e.target.checked)} />}
@@ -409,10 +592,41 @@ const MapView: React.FC = () => {
               label="Event Type"
               onChange={(e) => setEventTypeFilter(e.target.value)}
             >
-              <MenuItem value="all">All Types</MenuItem>
-              <MenuItem value="motion">Motion</MenuItem>
-              <MenuItem value="person_detected">Person Detected</MenuItem>
-              <MenuItem value="intrusion">Intrusion</MenuItem>
+              {eventTypes.map(type => (
+                <MenuItem key={type} value={type}>
+                  {type === 'all' ? 'All Types' : type.replace('_', ' ').toUpperCase()}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Detection Type</InputLabel>
+            <Select
+              value={detectionTypeFilter}
+              label="Detection Type"
+              onChange={(e) => setDetectionTypeFilter(e.target.value)}
+            >
+              {detectionTypes.map(type => (
+                <MenuItem key={type} value={type}>
+                  {type === 'all' ? 'All Types' : type.replace('_', ' ').toUpperCase()}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Report Source</InputLabel>
+            <Select
+              value={reportSourceFilter}
+              label="Report Source"
+              onChange={(e) => setReportSourceFilter(e.target.value)}
+            >
+              {reportSources.map(source => (
+                <MenuItem key={source} value={source}>
+                  {source === 'all' ? 'All Sources' : source.replace('_', ' ').toUpperCase()}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
 
@@ -440,16 +654,40 @@ const MapView: React.FC = () => {
             }
             label="Unresolved Events Only"
           />
+          
+          <FormControlLabel
+            control={
+              <Switch 
+                checked={showPendingOnly} 
+                onChange={(e) => setShowPendingOnly(e.target.checked)} 
+              />
+            }
+            label="Pending Review Only"
+          />
+          
+          <FormControlLabel
+            control={
+              <Switch 
+                checked={autoZoomToNew} 
+                onChange={(e) => setAutoZoomToNew(e.target.checked)} 
+              />
+            }
+            label="Auto Zoom to New Reports"
+          />
         </Box>
       </Menu>
 
       {/* Map */}
-      <Box sx={{ height: 'calc(100vh - 120px)', position: 'relative' }}>
+      <Box 
+        sx={{ height: 'calc(100vh - 120px)', position: 'relative' }}
+        onClick={() => setContextMenu(null)}
+      >
         <MapContainer
-          center={[40.7128, -74.0060]}
+          center={[40.7831, -73.9712]}
           zoom={13}
           style={{ height: '100%', width: showSidebar ? 'calc(100% - 400px)' : '100%' }}
         >
+          <MapEventHandler />
           <TileLayer
             attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
             url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
@@ -532,6 +770,73 @@ const MapView: React.FC = () => {
                   <Typography variant="caption" display="block">
                     {new Date(event.timestamp).toLocaleString()}
                   </Typography>
+                </Box>
+              </Popup>
+            </Marker>
+          ))}
+
+          {/* Detection Markers (Non-Event Reports) */}
+          {showDetections && filteredDetections.map((detection) => (
+            <Marker
+              key={`detection-${detection._id}`}
+              position={[detection.location.coordinates[1], detection.location.coordinates[0]]}
+              icon={createDetectionIcon(detection)}
+            >
+              <Popup>
+                <Box sx={{ minWidth: '250px' }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    {detection.type.replace('_', ' ').toUpperCase()}
+                  </Typography>
+                  <Typography variant="body2" color="textSecondary">
+                    {detection.description}
+                  </Typography>
+                  <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    <Chip
+                      label={detection.status.replace('_', ' ')}
+                      size="small"
+                      color={detection.status === 'pending_review' ? 'warning' : 
+                             detection.status === 'investigating' ? 'info' : 'success'}
+                    />
+                    <Chip
+                      label={detection.source.replace('_', ' ')}
+                      size="small"
+                      variant="outlined"
+                    />
+                    <Chip
+                      label={detection.severity}
+                      size="small"
+                      color={detection.severity === 'high' ? 'error' : 
+                             detection.severity === 'medium' ? 'warning' : 'default'}
+                    />
+                  </Box>
+                  <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                    {new Date(detection.timestamp).toLocaleString()}
+                  </Typography>
+                  {detection.status === 'pending_review' && (
+                    <Box sx={{ mt: 2, display: 'flex', gap: 1 }}>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="primary"
+                        onClick={() => {
+                          // TODO: Implement promote to event
+                          console.log('Promoting detection to event:', detection._id);
+                        }}
+                      >
+                        Promote to Event
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => {
+                          // TODO: Implement investigation
+                          console.log('Start investigating:', detection._id);
+                        }}
+                      >
+                        Investigate
+                      </Button>
+                    </Box>
+                  )}
                 </Box>
               </Popup>
             </Marker>
@@ -637,6 +942,26 @@ const MapView: React.FC = () => {
           </Card>
         </Collapse>
       </Box>
+
+      {/* Right-click Context Menu */}
+      <MapContextMenu
+        position={contextMenu?.position || null}
+        latLng={contextMenu?.latLng || null}
+        onClose={() => setContextMenu(null)}
+        onAddCamera={handleAddCamera}
+        onCreateEvent={handleCreateEvent}
+        onViewCoverage={handleViewCoverage}
+        onAnalyzeArea={handleAnalyzeArea}
+        onSetWaypoint={handleSetWaypoint}
+        onMeasureDistance={handleMeasureDistance}
+        onViewTimeline={handleViewTimeline}
+        userRole="operator"
+        nearbyData={{
+          cameras: filteredCameras.length,
+          events: filteredEvents.length,
+          detections: filteredDetections.length
+        }}
+      />
     </Box>
   );
 };

@@ -1,50 +1,210 @@
 import { Request, Response } from 'express';
-import Event from '../models/Event';
-import Camera from '../models/Camera';
-import { IEvent } from '../models/Event';
+import { body, query, validationResult } from 'express-validator';
+import { Event, IEvent } from '../models/Event';
+import mongoose from 'mongoose';
 
-// @desc    Get all events
+// Validation rules for creating events
+export const createEventValidation = [
+  body('title')
+    .trim()
+    .notEmpty()
+    .withMessage('Event title is required')
+    .isLength({ min: 3, max: 200 })
+    .withMessage('Title must be between 3 and 200 characters'),
+
+  body('description')
+    .optional()
+    .trim()
+    .isLength({ max: 2000 })
+    .withMessage('Description must be less than 2000 characters'),
+
+  body('type')
+    .isIn(['security_incident', 'traffic_violation', 'emergency', 'maintenance_needed', 'user_report', 'system_alert', 'motion_detected', 'person_detected', 'vehicle_detected', 'unauthorized_access', 'suspicious_activity', 'other'])
+    .withMessage('Invalid event type'),
+
+  body('severity')
+    .isIn(['low', 'medium', 'high', 'critical', 'emergency'])
+    .withMessage('Invalid severity level'),
+
+  body('priority')
+    .optional()
+    .isInt({ min: 1, max: 5 })
+    .withMessage('Priority must be between 1 and 5'),
+
+  body('location.coordinates')
+    .isArray({ min: 2, max: 2 })
+    .withMessage('Coordinates must be an array of [longitude, latitude]')
+    .custom((value) => {
+      const [lng, lat] = value;
+      if (typeof lng !== 'number' || typeof lat !== 'number') {
+        throw new Error('Coordinates must be numbers');
+      }
+      if (lng < -180 || lng > 180 || lat < -90 || lat > 90) {
+        throw new Error('Invalid coordinate ranges');
+      }
+      return true;
+    }),
+
+  body('location.address')
+    .optional()
+    .trim()
+    .isLength({ max: 500 })
+    .withMessage('Address must be less than 500 characters'),
+
+  body('cameraId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid camera ID'),
+
+  body('detectionId')
+    .optional()
+    .isMongoId()
+    .withMessage('Invalid detection ID'),
+
+  body('reporter.name')
+    .optional()
+    .trim()
+    .isLength({ max: 100 })
+    .withMessage('Reporter name must be less than 100 characters'),
+
+  body('reporter.email')
+    .optional()
+    .isEmail()
+    .withMessage('Invalid email address'),
+
+  body('tags')
+    .optional()
+    .isArray()
+    .withMessage('Tags must be an array'),
+
+  body('source')
+    .optional()
+    .isIn(['camera_system', 'user_report', 'ai_detection', 'sensor_alert', 'manual_entry', 'mobile_app'])
+    .withMessage('Invalid source'),
+];
+
+// Create a new event
+export const createEvent = async (req: Request, res: Response) => {
+  try {
+    // Check validation errors
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
+
+    const {
+      title,
+      description,
+      type,
+      severity,
+      priority = 3,
+      location,
+      cameraId,
+      detectionId,
+      detectionData,
+      media,
+      reporter,
+      tags = [],
+      source = 'user_report',
+      publiclyVisible = false,
+      customFields
+    } = req.body;
+
+    // Set reporter information
+    const reporterData = {
+      userId: req.user?.id, // From auth middleware
+      name: reporter?.name,
+      email: reporter?.email,
+      phone: reporter?.phone,
+      isAnonymous: reporter?.isAnonymous || false
+    };
+
+    const eventData: Partial<IEvent> = {
+      title,
+      description,
+      type,
+      severity,
+      priority,
+      location,
+      cameraId: cameraId ? new mongoose.Types.ObjectId(cameraId) : undefined,
+      detectionId: detectionId ? new mongoose.Types.ObjectId(detectionId) : undefined,
+      detectionData,
+      media: {
+        images: media?.images || [],
+        videos: media?.videos || [],
+        thumbnails: media?.thumbnails || [],
+        attachments: media?.attachments || []
+      },
+      reporter: reporterData,
+      tags,
+      source,
+      publiclyVisible,
+      customFields: customFields ? new Map(Object.entries(customFields)) : new Map(),
+      status: 'pending',
+      verified: false
+    };
+
+    const event = new Event(eventData);
+    const savedEvent = await event.save();
+
+    // Populate references for response
+    await savedEvent.populate([
+      { path: 'cameraId', select: 'name location' },
+      { path: 'assignedTo', select: 'username email' },
+      { path: 'reporter.userId', select: 'username email' }
+    ]);
+
+    res.status(201).json({
+      success: true,
+      message: 'Event created successfully',
+      data: savedEvent
+    });
+
+  } catch (error: any) {
+    console.error('Create event error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create event',
+      error: error.message
+    });
+  }
+};
+
+// @desc    Get all events with filtering, pagination, and search
 // @route   GET /api/events
 // @access  Private
 export const getEvents = async (req: Request, res: Response): Promise<void> => {
   try {
-    const {
-      page = 1,
-      limit = 10,
-      status,
-      type,
-      severity,
-      cameraId,
-      startDate,
-      endDate,
-    } = req.query;
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const skip = (page - 1) * limit;
 
-    // Build filter
+    // Build query filters
     const filter: any = {};
-    
-    if (status) filter.status = status;
-    if (type) filter.type = type;
-    if (severity) filter.severity = severity;
-    if (cameraId) filter.camera = cameraId;
-    
-    if (startDate || endDate) {
-      filter.timestamp = {};
-      if (startDate) filter.timestamp.$gte = new Date(startDate as string);
-      if (endDate) filter.timestamp.$lte = new Date(endDate as string);
+
+    // Add other filters as needed
+    if (req.query.status) {
+      filter.status = req.query.status;
     }
 
-    // Execute query with pagination
-    const pageNum = parseInt(page as string);
-    const limitNum = parseInt(limit as string);
-    const skip = (pageNum - 1) * limitNum;
+    if (req.query.severity) {
+      filter.severity = req.query.severity;
+    }
 
     const events = await Event.find(filter)
-      .populate('camera', 'name')
-      .sort({ timestamp: -1 })
+      .populate('cameraId', 'name location')
+      .populate('assignedTo', 'username email')
+      .sort({ createdAt: -1 })
       .skip(skip)
-      .limit(limitNum);
+      .limit(limit);
 
     const total = await Event.countDocuments(filter);
+    const pageNum = page;
+    const limitNum = limit;
 
     res.json({
       success: true,
@@ -84,57 +244,6 @@ export const getEvent = async (req: Request, res: Response): Promise<void> => {
     });
   } catch (error) {
     console.error('Get event error:', error);
-    res.status(500).json({
-      success: false,
-      message: 'Server error',
-    });
-  }
-};
-
-// @desc    Create event
-// @route   POST /api/events
-// @access  Private
-export const createEvent = async (req: Request, res: Response): Promise<void> => {
-  try {
-    const {
-      title,
-      type,
-      severity,
-      camera,
-      detectionData,
-      metadata,
-    } = req.body;
-
-    // Verify camera exists
-    const cameraDoc = await Camera.findById(camera);
-    if (!cameraDoc) {
-      res.status(400).json({
-        success: false,
-        message: 'Camera not found',
-      });
-      return;
-    }
-
-    const event = await Event.create({
-      title,
-      type,
-      severity: severity || 'medium',
-      camera,
-      detectionData,
-      metadata,
-      timestamp: new Date(),
-      status: 'open',
-    });
-
-    // Populate camera info
-    const populatedEvent = await Event.findById(event._id).populate('camera', 'name');
-
-    res.status(201).json({
-      success: true,
-      data: populatedEvent,
-    });
-  } catch (error) {
-    console.error('Create event error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',
