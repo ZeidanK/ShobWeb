@@ -1,6 +1,17 @@
 # Event Monitoring MVP
 
-A comprehensive security event monitoring system with real-time video analysis, camera management, and interactive dashboards.
+A comprehensive security event monitoring system with real-time video analysis, camera management, interactive dashboards, and **mobile citizen reporting integration**.
+
+## 🚀 Features
+
+- **🎥 Real-time Camera Monitoring** - Live video feeds with AI detection
+- **🤖 AI-powered Event Detection** - Automated incident recognition  
+- **📱 Mobile Citizen Reporting** - Anonymous & authenticated event submission
+- **🔐 Multi-role Authentication** - Citizens, operators, admins with flexible permissions
+- **📊 Interactive Dashboard** - Real-time event tracking and management
+- **🗺️ Location-based Events** - GPS tracking and mapping integration
+- **📞 Phone + OTP Authentication** - Seamless mobile registration
+- **🏷️ Dynamic Event Types** - Flexible, hierarchical event categorization
 
 ## 🚀 Getting Started
 
@@ -38,6 +49,13 @@ cp backend/.env.example backend/.env
 cp frontend/.env.example frontend/.env
 cp ai-service/.env.example ai-service/.env
 
+# Configure environment variables for mobile integration
+echo "# Mobile & Authentication Config" >> backend/.env
+echo "SMS_SERVICE_API_KEY=your_sms_api_key" >> backend/.env
+echo "SMS_SERVICE_URL=your_sms_service_url" >> backend/.env
+echo "REDIS_URL=redis://localhost:6379" >> backend/.env
+echo "ENABLE_PHONE_AUTH=true" >> backend/.env
+
 # Install dependencies
 cd backend && npm install && cd ..
 cd frontend && npm install && cd ..
@@ -46,11 +64,104 @@ cd ai-service && pip3 install -r requirements.txt && cd ..
 
 ### 3. Start Development
 ```bash
-# Terminal 1: Backend
+# Terminal 1: Backend API
 cd backend && npm run dev
 
-# Terminal 2: Frontend
+# Terminal 2: Frontend Dashboard  
 cd frontend && npm start
+
+# Terminal 3: AI Service
+cd ai-service && python app.py
+
+# Terminal 4: Setup database (wait for backend to start)
+node scripts/setup-database.js
+```
+
+## 📱 Mobile Integration
+
+**Important**: Citizens authenticate through the mobile app. Your web backend only receives event submissions from mobile users - not their authentication data.
+
+### Quick Mobile Setup
+```bash
+# 1. Backend provides EventTypes and receives events from mobile app
+# 2. Test event submission (mobile app handles citizen auth):
+curl -X POST http://localhost:5000/api/mobile/events \
+  -H "Content-Type: application/json" \
+  -H "X-Mobile-Auth-Token: mobile_app_token" \
+  -d '{"eventType": "Security Incident", "description": "Test event", "location": {"lat": 40.7128, "lon": -74.0060}}'
+
+# 3. Get EventTypes for mobile team:
+curl -X GET http://localhost:5000/api/mobile/events/types
+```
+
+### Mobile API Endpoints
+- `GET /api/mobile/events/types` - Get available event types for mobile app
+- `POST /api/mobile/events` - Receive event submissions from mobile app
+
+## 🔐 Authentication & User Roles
+
+### Web Application Users Only
+| Role | Email | Password | Purpose |
+|------|-------|----------|---------|
+| Super Admin | admin@example.com | password123 | Full system access |
+| Operator | operator1@example.com | password123 | Monitor events, manage cameras |
+| Mobile Admin | mobile@example.com | password123 | Manage EventTypes for mobile team |
+
+**Note**: Citizens authenticate through mobile app - not stored in web database.
+
+### Authentication Methods
+- **📧 Email + Password** - Web dashboard users (operators, admins)
+- **📱 Mobile App Auth** - Citizens authenticate in mobile app (separate system)
+- **👤 Anonymous Reporting** - Mobile app supports anonymous event submission
+
+### User Permissions System
+- **Dynamic Roles** - flexible role assignments per user
+- **Resource-based** - granular permissions (events, cameras, users, etc.)
+- **Conditional Access** - time/location/ownership-based restrictions
+- **Inheritance** - role permissions + individual grants
+
+## 📋 Event Types Management
+
+### Dynamic Event Categories
+```javascript
+// Example EventType structure
+{
+  name: "Security Incidents",
+  category: "security", 
+  parentType: null, // Top-level
+  subTypes: ["Theft", "Vandalism", "Suspicious Activity"],
+  isPublic: true,
+  allowedRoles: ["citizen", "operator", "admin"],
+  customFields: [
+    { name: "severity", type: "select", options: ["low", "medium", "high"] }
+  ]
+}
+```
+
+### Managing Event Types
+- **Mobile Admin Role** - Create/edit event types for mobile team
+- **Hierarchical Structure** - Categories → Subcategories  
+- **Custom Fields** - Flexible form fields per event type
+- **Role Restrictions** - Control which users can report each type
+
+## 🗄️ Database Schema
+
+### New Collections
+- **eventtypes** - Dynamic event type definitions
+- **permissions** - Granular permission grants
+- **users** (enhanced) - Multi-auth, multi-role support
+- **events** (enhanced) - EventType references + backward compatibility
+
+### Migration from Legacy
+```bash
+# Run migration script for existing data
+node scripts/migrate-to-new-schema.js
+
+# Or reset and start fresh
+docker-compose down -v
+docker-compose up -d mongodb
+node setup_default_users.js
+```
 
 # Create default users
 node setup_default_users.js

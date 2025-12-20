@@ -2,25 +2,53 @@
 
 const http = require('http');
 
+// Web application users only - mobile users authenticate through their own app
 const users = [
   {
     username: 'admin',
     email: 'admin@example.com',
     password: 'password123',
-    role: 'admin'
+    roles: ['super_admin'],
+    authMethod: 'email',
+    profile: {
+      firstName: 'System',
+      lastName: 'Administrator'
+    }
   },
   {
     username: 'operator1', 
     email: 'operator1@example.com',
     password: 'password123',
-    role: 'operator'
+    roles: ['operator'],
+    authMethod: 'email',
+    profile: {
+      firstName: 'John',
+      lastName: 'Operator'
+    }
   },
   {
     username: 'operator2',
     email: 'operator2@example.com', 
     password: 'password123',
-    role: 'operator'
+    roles: ['operator'],
+    authMethod: 'email',
+    profile: {
+      firstName: 'Jane',
+      lastName: 'Monitor'
+    }
+  },
+  {
+    username: 'mobile_admin',
+    email: 'mobile@example.com',
+    password: 'password123',
+    roles: ['mobile_admin'],
+    authMethod: 'email',
+    profile: {
+      firstName: 'Mobile',
+      lastName: 'Administrator'
+    }
   }
+  // Note: Citizens authenticate through mobile app - not stored in web database
 ];
 
 function makeRequest(user) {
@@ -46,15 +74,27 @@ function makeRequest(user) {
       
       res.on('end', () => {
         if (res.statusCode >= 200 && res.statusCode < 300) {
-          resolve({ user: user.username, success: true, data: body });
+          resolve({ 
+            user: user.username || user.email || user.phone, 
+            success: true, 
+            data: body 
+          });
         } else {
-          resolve({ user: user.username, success: false, error: body });
+          resolve({ 
+            user: user.username || user.email || user.phone, 
+            success: false, 
+            error: body 
+          });
         }
       });
     });
 
     req.on('error', (err) => {
-      resolve({ user: user.username, success: false, error: err.message });
+      resolve({ 
+        user: user.username || user.email || user.phone, 
+        success: false, 
+        error: err.message 
+      });
     });
 
     req.write(data);
@@ -98,7 +138,8 @@ async function createUsers() {
 
   results.forEach(result => {
     if (result.success) {
-      console.log(`✅ Created user: ${result.user}`);
+      const userData = JSON.parse(result.data);
+      console.log(`✅ Created user: ${result.user} (roles: ${userData.user?.roles?.join(', ') || 'N/A'})`);
     } else {
       const errorMsg = JSON.parse(result.error || '{}').message || result.error;
       if (errorMsg.includes('already exists') || errorMsg.includes('duplicate')) {
@@ -111,9 +152,16 @@ async function createUsers() {
 
   console.log('\n🎉 Default users setup complete!');
   console.log('\n📧 Login credentials:');
-  console.log('   Email: admin@example.com');
-  console.log('   Password: password123');
-  console.log('\n🌐 Frontend: http://localhost:3000');
+  console.log('   Super Admin: admin@example.com / password123');
+  console.log('   Operator: operator1@example.com / password123');  
+  console.log('   Mobile Admin: mobile@example.com / password123');
+  console.log('\n📱 Mobile Integration:');
+  console.log('   • Citizens authenticate through mobile app (not stored here)');
+  console.log('   • Mobile app submits events to /api/mobile/events endpoint');
+  console.log('   • Use mobile admin account to manage EventTypes for mobile team');
+  console.log('\n🌐 Access:');
+  console.log('   Frontend: http://localhost:3000');
+  console.log('   API: http://localhost:5000/api');
 }
 
 createUsers();

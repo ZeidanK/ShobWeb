@@ -173,7 +173,7 @@ Local:            http://localhost:3000
 
 Your **browser should automatically open** to http://localhost:3000
 
-### Step 11: Create Default Users
+### Step 11: Setup Database and Users
 
 Open a **third WSL2 terminal** and run:
 
@@ -181,21 +181,38 @@ Open a **third WSL2 terminal** and run:
 # Navigate to project root
 cd ~/event-monitoring-mvp  # OR your project path
 
-# Create default admin and operator users
-node setup_default_users.js
+# Complete database setup (creates collections, indexes, EventTypes, and users)
+node scripts/setup-database.js
 ```
 
 **You should see**:
 ```
+🗄️ Initializing MongoDB database...
+📂 Creating collections...
+🗂️ Creating indexes...
+🌱 Seeding default data...
+👥 Creating web application users...
 ✅ Created user: admin
 ✅ Created user: operator1
-✅ Created user: operator2
-🎉 Default users setup complete!
+✅ Created user: mobile_admin
+🎉 Setup complete!
 ```
 
----
+## 🗄️ Database Management
 
-## ✅ Verify Everything Works
+All database scripts are in the `scripts/` folder:
+
+```bash
+# Complete database setup
+node scripts/setup-database.js
+
+# Migrate existing data (if upgrading)
+node scripts/migrate-to-new-schema.js
+
+# View all available scripts
+ls scripts/
+cat scripts/README.md
+```
 
 ### Step 12: Login to the Application
 

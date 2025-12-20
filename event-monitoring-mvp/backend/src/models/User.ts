@@ -1,148 +1,130 @@
 import mongoose, { Document, Schema } from 'mongoose';
 import bcrypt from 'bcryptjs';
+import validator from 'validator';
 
 /**
- * Interface for User document with enhanced role system and mobile support
+ * Interface for User document - Web application users only
  * 
- * Supports multiple user types including citizens for mobile reporting,
- * flexible permission assignments, and phone-based authentication.
+ * Mobile users authenticate through their own app and are not stored here.
+ * We only receive event submissions from mobile users, not their auth data.
  */
 export interface IUser extends Document {
-  username: string;
-  email?: string; // Optional for citizen users
-  password?: string; // Optional for phone-only auth
-  phone?: string; // Phone number for mobile authentication
-  role: 'citizen' | 'operator' | 'admin' | 'mobile_admin' | 'super_admin';
-  authMethod: 'email_password' | 'phone_otp' | 'social_oauth';
-  isActive: boolean;
-  isVerified: boolean;
-  lastLogin?: Date;
+  username?: string;
+  email: string; // Required for web users
+  password: string; // Required for web authentication
+  roles: UserRole[]; // Array of roles for flexible assignment
+  authMethod: 'email' | 'oauth';
+  oauthProvider?: string;
+  oauthId?: string;
   profile: {
     firstName?: string;
     lastName?: string;
     avatar?: string;
     department?: string;
-    location?: {
-      coordinates: [number, number];
-      address?: string;
-      accuracy?: number;
-    };
-    timezone: string;
-    preferredLanguage: string;
   };
-  permissions: {
-    granted: mongoose.Types.ObjectId[]; // Individual permissions
-    inherited: mongoose.Types.ObjectId[]; // Role-based permissions
-    lastUpdated: Date;
-    updatedBy: mongoose.Types.ObjectId;
-  };
-  mobileSettings?: {
-    deviceTokens: string[]; // For push notifications
-    appVersion?: string;
-    osVersion?: string;
-    lastActiveLocation?: {
-      coordinates: [number, number];
-      timestamp: Date;
-    };
-  };
-  authentication: {
-    phoneVerified: boolean;
-    emailVerified: boolean;
-    twoFactorEnabled: boolean;
-    lastPasswordChange?: Date;
-    failedAttempts: number;
-    lockoutUntil?: Date;
-    otpSecret?: string;
-    recoveryTokens?: string[];
-  };
-  metadata: {
-    createdBy?: mongoose.Types.ObjectId;
-    source: 'admin_created' | 'self_registered' | 'mobile_app' | 'system_import';
-    tags: string[];
-    notes?: string;
-  };
-  usage: {
-    eventsCreated: number;
-    eventsAssigned: number;
-    lastActivityAt?: Date;
-    loginCount: number;
-  };
+  permissions: Permission[];
+  isActive: boolean;
+  isEmailVerified: boolean;
+  emailVerifiedAt?: Date;
+  lastLoginAt?: Date;
+  createdAt: Date;
+  updatedAt: Date;
   comparePassword(candidatePassword: string): Promise<boolean>;
-  hasPermission(permissionName: string, context?: any): Promise<boolean>;
-  getRolePermissions(): Promise<mongoose.Types.ObjectId[]>;
-  updateLastActivity(): Promise<void>;
 }
 
+// User roles for web application
+export type UserRole = 'operator' | 'admin' | 'mobile_admin' | 'super_admin';
+
+// Permission structure for granular access control
+export interface Permission {
+  resource: string;
+  action: string;
+  granted: boolean;
+  conditions?: {
+    ownOnly?: boolean;
+    timeRestriction?: string;
+    locationRestriction?: string;
+  };
+}
 /**
- * Enhanced User Schema with flexible authorization and mobile support
+ * User Schema for web application users only
  * 
- * Supports citizen reporters, operators, admins with granular permissions,
- * phone authentication, and comprehensive activity tracking.
+ * Mobile authentication is handled separately - we only receive events from mobile users
  */
-const userSchema = new Schema<IUser>(
-  {
-    username: {
+const userSchema = new Schema<IUser>({
+  username: {
+    type: String,
+    sparse: true,
+    unique: true,
+    trim: true,
+    minlength: [3, 'Username must be at least 3 characters'],
+    maxlength: [30, 'Username must be less than 30 characters']
+  },
+  email: {
+    type: String,
+    required: [true, 'Email is required'],
+    unique: true,
+    lowercase: true,
+    validate: [validator.isEmail, 'Invalid email format']
+  },
+  password: {
+    type: String,
+    required: [true, 'Password is required'],
+    minlength: [6, 'Password must be at least 6 characters'],
+    select: false
+  },
+  roles: [{
+    type: String,
+    enum: ['operator', 'admin', 'mobile_admin', 'super_admin'],
+    default: 'operator'
+  }],
+  authMethod: {
+    type: String,
+    enum: ['email', 'oauth'],
+    default: 'email'
+  },
+  oauthProvider: {
+    type: String,
+    enum: ['google', 'microsoft', 'github']
+  },
+  oauthId: String,
+  profile: {
+    firstName: {
       type: String,
-      required: [true, 'Username is required'],
-      unique: true,
-      sparse: true, // Allows null for phone-only users
       trim: true,
-      minlength: [3, 'Username must be at least 3 characters'],
-      maxlength: [30, 'Username must be less than 30 characters'],
-      match: [/^[a-zA-Z0-9_.-]+$/, 'Username can only contain letters, numbers, underscores, dots, and hyphens']
+      maxlength: [50, 'First name cannot exceed 50 characters']
     },
-    email: {
+    lastName: {
       type: String,
-      sparse: true, // Allows null for phone-only users
-      lowercase: true,
-      match: [
-        /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-        'Please enter a valid email address'
-      ]
+      trim: true,
+      maxlength: [50, 'Last name cannot exceed 50 characters']
     },
-    password: {
-      type: String,
-      minlength: [6, 'Password must be at least 6 characters'],
-      select: false
-    },
-    phone: {
-      type: String,
-      sparse: true,
-      match: [/^\+?[1-9]\d{1,14}$/, 'Please enter a valid phone number with country code']
-    },
-    role: {
-      type: String,
-      required: [true, 'Role is required'],
-      enum: {
-        values: ['citizen', 'operator', 'admin', 'mobile_admin', 'super_admin'],
-        message: '{VALUE} is not a valid role'
-      },
-      default: 'citizen'
-    },
-    authMethod: {
-      type: String,
-      required: [true, 'Authentication method is required'],
-      enum: {
-        values: ['email_password', 'phone_otp', 'social_oauth'],
-        message: '{VALUE} is not a valid authentication method'
-      },
-      default: 'email_password'
-    },
-    isActive: {
-      type: Boolean,
-      default: true
-    },
-    isVerified: {
-      type: Boolean,
-      default: false
-    },
-    lastLogin: {
-      type: Date
-    },
-    profile: {
-      firstName: {
-        type: String,
-        trim: true,
+    avatar: String,
+    department: String
+  },
+  permissions: [{
+    resource: { type: String, required: true },
+    action: { type: String, required: true },
+    granted: { type: Boolean, default: true },
+    conditions: {
+      ownOnly: Boolean,
+      timeRestriction: String,
+      locationRestriction: String
+    }
+  }],
+  isActive: {
+    type: Boolean,
+    default: true
+  },
+  isEmailVerified: {
+    type: Boolean,
+    default: false
+  },
+  emailVerifiedAt: Date,
+  lastLoginAt: Date
+}, {
+  timestamps: true
+});
         maxlength: [50, 'First name cannot exceed 50 characters']
       },
       lastName: {
