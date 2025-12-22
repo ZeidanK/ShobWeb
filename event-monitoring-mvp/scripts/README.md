@@ -1,7 +1,7 @@
 # Database Scripts
 
 This directory contains all database management scripts for the Event Monitoring MVP.
-
+ 
 ## 🚀 Quick Setup
 
 ```bash

@@ -8,8 +8,8 @@ const users = [
     username: 'admin',
     email: 'admin@example.com',
     password: 'password123',
-    roles: ['super_admin'],
-    authMethod: 'email',
+    role: 'super_admin',
+    authMethod: 'email_password',
     profile: {
       firstName: 'System',
       lastName: 'Administrator'
@@ -19,8 +19,8 @@ const users = [
     username: 'operator1', 
     email: 'operator1@example.com',
     password: 'password123',
-    roles: ['operator'],
-    authMethod: 'email',
+    role: 'operator',
+    authMethod: 'email_password',
     profile: {
       firstName: 'John',
       lastName: 'Operator'
@@ -30,8 +30,8 @@ const users = [
     username: 'operator2',
     email: 'operator2@example.com', 
     password: 'password123',
-    roles: ['operator'],
-    authMethod: 'email',
+    role: 'operator',
+    authMethod: 'email_password',
     profile: {
       firstName: 'Jane',
       lastName: 'Monitor'
@@ -41,8 +41,8 @@ const users = [
     username: 'mobile_admin',
     email: 'mobile@example.com',
     password: 'password123',
-    roles: ['mobile_admin'],
-    authMethod: 'email',
+    role: 'mobile_admin',
+    authMethod: 'email_password',
     profile: {
       firstName: 'Mobile',
       lastName: 'Administrator'
@@ -162,6 +162,6 @@ async function createUsers() {
   console.log('\n🌐 Access:');
   console.log('   Frontend: http://localhost:3000');
   console.log('   API: http://localhost:5000/api');
-}
+} 
 
 createUsers();

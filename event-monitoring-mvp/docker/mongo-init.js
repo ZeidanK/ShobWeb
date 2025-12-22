@@ -1,6 +1,6 @@
 // MongoDB initialization script
 db = db.getSiblingDB('event_monitoring');
-
+ 
 // Create collections
 db.createCollection('users');
 db.createCollection('cameras');

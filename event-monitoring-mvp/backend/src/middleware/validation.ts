@@ -54,10 +54,9 @@ export const validateRegistration = (req: Request, res: Response, next: NextFunc
 // Enhanced user login validation supporting multiple auth methods
 export const validateLogin = (req: Request, res: Response, next: NextFunction): void => {
   const schema = Joi.object({
-    credential: Joi.string().required().messages({
-      'string.empty': 'Email, username, or phone number is required',
-      'any.required': 'Email, username, or phone number is required'
-    }),
+    // Accept both 'credential' (new) and 'email' (legacy) for backward compatibility
+    credential: Joi.string().optional(),
+    email: Joi.string().email().optional(), 
     password: Joi.string().optional(),
     otp: Joi.string().length(6).pattern(/^\d+$/).optional(),
     authMethod: Joi.string().valid('email_password', 'phone_otp').optional(),
@@ -67,12 +66,17 @@ export const validateLogin = (req: Request, res: Response, next: NextFunction): 
       deviceToken: Joi.string().optional()
     }).optional()
   }).custom((value, helpers) => {
+    // Require either credential or email
+    if (!value.credential && !value.email) {
+      return helpers.error('custom.credentialRequired');
+    }
     // At least password or OTP must be provided
     if (!value.password && !value.otp) {
       return helpers.error('custom.authRequired');
     }
     return value;
   }).messages({
+    'custom.credentialRequired': 'Email, username, or phone number is required',
     'custom.authRequired': 'Either password or OTP code is required'
   });
 

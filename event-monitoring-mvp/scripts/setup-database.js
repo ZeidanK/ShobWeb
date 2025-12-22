@@ -100,7 +100,7 @@ const defaultPermissions = [
   { resource: 'cameras', action: 'read', description: 'View cameras' },
   { resource: 'cameras', action: 'manage', description: 'Manage cameras' },
   { resource: 'event-types', action: 'manage', description: 'Manage event types' }
-];
+]; 
 
 async function initializeDatabase() {
   console.log('🗄️ Initializing MongoDB database...');
