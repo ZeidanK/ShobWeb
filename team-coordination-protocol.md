@@ -9,28 +9,79 @@ This document provides comprehensive recommendations and protocols for coordinat
 ## 1. PROJECT OVERVIEW & SCOPE
 
 ### System Architecture Overview
-- **Web Team**: Building the main dashboard, operator interface, and backend services
-- **Mobile Team**: Building mobile app for field users to report events and for operators to manage events
-- **Shared Components**: Backend API, Database, AI Analysis Engine, Real-time communication
+- **Web Team**: Building the main dashboard, operator interface, backend services, and **multi-tenant API management**
+- **Mobile Team**: Building **standalone mobile app** for multiple companies with field users, citizens, and first responders
+- **Shared Components**: Multi-tenant Backend API, Database with company isolation, AI Analysis Engine, Real-time communication with live tracking
+- **Multi-Tenancy**: API key-based company separation with isolated data access
 
 ### Key Integration Points
-1. **Event Data Management**: Both teams handle event creation, updates, and viewing
-2. **Real-time Communication**: WebSocket connections for live updates
-3. **User Management**: Authentication and role-based access control
-4. **Video & Media Handling**: Streaming and file management
-5. **GIS & Location Services**: Map integration and geofencing
+1. **Multi-Tenant Event Data Management**: Company-isolated event creation, updates, and viewing via API keys
+2. **Real-time Communication**: WebSocket connections for live updates + **first responder location tracking**
+3. **Multi-Level User Management**: Citizens, first responders, operators, company admins with API key authorization
+4. **Video & Media Handling**: Company-isolated streaming and file management
+5. **GIS & Location Services**: Map integration with **live first responder tracking** and geofencing
+6. **API Key Management**: Company onboarding, key rotation, and access control
 
 ---
 
 ## 2. STANDARDIZED DATA MODELS
 
-### 2.1 Event Data Structure
+### 2.1 Company Data Structure (New)
 ```json
 {
   "_id": "ObjectId",
+  "name": "string: required, company name",
+  "displayName": "string: optional, public display name",
+  "apiKey": "string: unique, auto-generated API key",
+  "apiSecret": "string: hashed secret for key validation",
+  "status": "enum: ['active', 'suspended', 'trial', 'expired']",
+  "subscription": {
+    "plan": "enum: ['basic', 'professional', 'enterprise', 'custom']",
+    "features": ["array of enabled features"],
+    "limits": {
+      "maxUsers": "number: max first responders",
+      "maxEvents": "number: monthly event limit",
+      "storageLimit": "number: file storage in MB",
+      "apiCallsLimit": "number: daily API calls"
+    },
+    "expiresAt": "Date: subscription expiry"
+  },
+  "contact": {
+    "adminName": "string: primary contact",
+    "adminEmail": "string: admin email",
+    "adminPhone": "string: admin phone",
+    "address": "string: company address"
+  },
+  "settings": {
+    "allowAnonymousReporting": "boolean: default true",
+    "requireEventApproval": "boolean: default false",
+    "enableFirstResponderTracking": "boolean: default false",
+    "locationTrackingInterval": "number: seconds between pings",
+    "dataRetentionDays": "number: days to keep data",
+    "allowedEventTypes": ["array of allowed event type IDs"],
+    "customEventTypes": ["array of company-specific event types"]
+  },
+  "apiUsage": {
+    "currentMonthCalls": "number",
+    "currentMonthEvents": "number",
+    "lastApiCall": "Date",
+    "quotaResetDate": "Date"
+  },
+  "createdAt": "Date: auto-generated",
+  "updatedAt": "Date: auto-generated"
+}
+```
+
+### 2.2 Enhanced Event Data Structure
+```json
+{
+  "_id": "ObjectId",
+  "companyId": "ObjectId: required, links to company for multi-tenancy",
   "title": "string: required, 3-200 characters",
   "description": "string: optional, max 2000 characters",
-  "type": "enum: ['security_incident', 'traffic_violation', 'emergency', 'maintenance_needed', 'user_report', 'system_alert', 'motion_detected', 'person_detected', 'vehicle_detected', 'unauthorized_access', 'suspicious_activity', 'other']",
+  "eventTypeId": "ObjectId: optional, reference to EventType document",
+  "type": "string: dynamic type name (legacy and new)",
+  "subType": "string: optional, dynamic subtype name",
   "severity": "enum: ['low', 'medium', 'high', 'critical', 'emergency']",
   "priority": "number: 1-5 (1=highest, 5=lowest)",
   "status": "enum: ['pending', 'acknowledged', 'investigating', 'resolved', 'closed', 'dismissed']",
@@ -69,6 +120,20 @@ This document provides comprehensive recommendations and protocols for coordinat
     "isAnonymous": "boolean: default false"
   },
   "assignedTo": "ObjectId: optional",
+  "firstResponder": {
+    "assignedResponder": "ObjectId: optional, first responder user ID",
+    "dispatchedAt": "Date: optional",
+    "arrivedAt": "Date: optional",
+    "completedAt": "Date: optional",
+    "currentLocation": {
+      "type": "Point",
+      "coordinates": "[longitude, latitude]",
+      "accuracy": "number: GPS accuracy in meters",
+      "lastPing": "Date: last location update"
+    },
+    "status": "enum: ['dispatched', 'en_route', 'on_scene', 'completed']",
+    "eta": "Date: estimated arrival time"
+  },
   "escalatedTo": "ObjectId: optional",
   "acknowledgedAt": "Date: optional",
   "resolvedAt": "Date: optional",
@@ -104,28 +169,50 @@ This document provides comprehensive recommendations and protocols for coordinat
 }
 ```
 
-### 2.2 User Data Structure
+### 2.3 Enhanced User Data Structure
 ```json
 {
   "_id": "ObjectId",
+  "companyId": "ObjectId: required for first_responder, citizen users",
   "username": "string: unique, required",
   "email": "string: unique, required for email auth",
-  "passwordHash": "string: required for email auth",
-  "phone": "string: required for phone auth",
+  "passwordHash": "string: required for email/phone auth",
+  "phone": "string: required for first_responder and phone auth",
   "fullName": "string: required",
-  "role": "enum: ['citizen', 'operator', 'admin', 'mobile_admin', 'super_admin']",
-  "authMethod": "enum: ['email_password', 'phone_otp', 'social_oauth']",
+  "role": "enum: ['citizen', 'first_responder', 'operator', 'admin', 'company_admin', 'mobile_admin', 'super_admin']",
+  "authMethod": "enum: ['email_password', 'phone_password', 'phone_otp', 'api_key']",
   "permissions": {
     "granted": ["ObjectId array: individual permissions"],
     "inherited": ["ObjectId array: role-based permissions"]
   },
-  "profile": {
-    "phoneNumber": "string: optional",
+  "firstResponderProfile": {
+    "badgeNumber": "string: optional",
     "department": "string: optional",
-    "location": "string: optional",
-    "avatar": "string: optional",
-    "bio": "string: optional",
-    "timezone": "string: optional"
+    "specializations": ["array: medical, fire, police, security, maintenance"],
+    "certifications": ["array of certifications"],
+    "currentStatus": "enum: ['available', 'on_duty', 'busy', 'off_duty']",
+    "currentLocation": {
+      "type": "Point",
+      "coordinates": "[longitude, latitude]",
+      "accuracy": "number",
+      "lastPing": "Date",
+      "isTracking": "boolean: location sharing enabled"
+    },
+    "shiftSchedule": {
+      "startTime": "string: HH:MM",
+      "endTime": "string: HH:MM",
+      "daysOfWeek": ["array: 0-6 (Sunday-Saturday)"]
+    }
+  },
+  "companySettings": {
+    "canReceiveAssignments": "boolean: default true",
+    "maxTravelDistance": "number: km radius for assignments",
+    "notificationPreferences": {
+      "newEvents": "boolean",
+      "assignments": "boolean",
+      "emergencies": "boolean",
+      "shiftReminders": "boolean"
+    }
   },
   "mobileSettings": {
     "deviceTokens": ["array of push notification tokens"],
@@ -152,44 +239,84 @@ This document provides comprehensive recommendations and protocols for coordinat
 }
 ```
 
-### 2.3 EventType Data Structure
+### 2.4 Dynamic EventType Data Structure
 ```json
 {
   "_id": "ObjectId",
-  "name": "string: unique, required",
-  "category": "enum: ['security', 'traffic', 'emergency', 'maintenance', 'social', 'environmental']",
-  "parentType": "ObjectId: optional (for hierarchical types/subtypes)",
+  "name": "string: unique per company, required",
+  "displayName": "string: user-friendly name",
+  "category": "string: flexible category (not enum)",
+  "subTypes": [{
+    "name": "string: subtype name",
+    "displayName": "string: user-friendly subtype name",
+    "isActive": "boolean: default true"
+  }],
+  "companyId": "ObjectId: optional, null for global types",
+  "isGlobal": "boolean: available to all companies",
   "isPublic": "boolean: available for citizen reporters",
+  "isAutoGenerated": "boolean: created from mobile app submission",
   "allowedRoles": ["array of roles that can use this type"],
   "defaultSeverity": "enum: ['low', 'medium', 'high', 'critical', 'emergency']",
   "defaultPriority": "number: 1-5",
   "requiredFields": ["array of required field names"],
+  "customFields": [{
+    "name": "string",
+    "type": "enum: ['text', 'number', 'select', 'multiselect', 'boolean', 'date']",
+    "options": ["array: for select/multiselect"],
+    "required": "boolean",
+    "defaultValue": "any"
+  }],
   "autoAssignmentRules": {
-    "location": {
-      "type": "Point",
-      "coordinates": ["longitude", "latitude"],
-      "radius": "number: meters"
+    "byLocation": {
+      "enabled": "boolean",
+      "radiusKm": "number",
+      "assignToNearest": "boolean"
     },
-    "assignTo": "ObjectId: user to auto-assign to"
+    "bySpecialization": {
+      "enabled": "boolean",
+      "requiredSpecializations": ["array"]
+    },
+    "byWorkload": {
+      "enabled": "boolean",
+      "maxActiveEvents": "number"
+    }
   },
-  "escalationRules": {
-    "timeThreshold": "number: minutes before escalation",
-    "escalateTo": "ObjectId: user to escalate to"
+  "usage": {
+    "totalEvents": "number: count of events using this type",
+    "lastUsed": "Date",
+    "averageResolutionTime": "number: minutes"
   },
-  "notificationSettings": {
-    "immediateNotification": "boolean",
-    "notificationChannels": ["array: ['push', 'email', 'sms']"],
-    "recipientGroups": ["array of user groups to notify"]
-  },
-  "validationRules": {
-    "requiresMedia": "boolean",
-    "requiresLocation": "boolean",
-    "requiresApproval": "boolean",
-    "minimumSeverity": "string: optional"
-  },
+  "approvalStatus": "enum: ['pending', 'approved', 'rejected']",
+  "createdBy": "ObjectId: user who created/auto-generated",
   "isActive": "boolean: default true",
   "createdAt": "Date: auto-generated",
   "updatedAt": "Date: auto-generated"
+}
+```
+
+### 2.5 First Responder Location Tracking
+```json
+{
+  "_id": "ObjectId",
+  "userId": "ObjectId: first responder user ID",
+  "companyId": "ObjectId: company association",
+  "location": {
+    "type": "Point",
+    "coordinates": "[longitude, latitude]"
+  },
+  "accuracy": "number: GPS accuracy in meters",
+  "speed": "number: m/s",
+  "heading": "number: degrees",
+  "altitude": "number: meters",
+  "battery": "number: device battery percentage",
+  "status": "enum: ['on_duty', 'available', 'busy', 'emergency']",
+  "eventId": "ObjectId: optional, if responding to specific event",
+  "timestamp": "Date: ping time",
+  "deviceInfo": {
+    "platform": "string: iOS/Android",
+    "appVersion": "string",
+    "deviceId": "string: unique device identifier"
+  }
 }
 ```
 
@@ -222,21 +349,48 @@ This document provides comprehensive recommendations and protocols for coordinat
 
 ### 3.1 Authentication Endpoints
 ```
-POST /api/auth/login              # Email/password login
+# Web Dashboard Authentication
+POST /api/auth/login              # Email/password login (operators, admins)
 POST /api/auth/logout             # Standard logout
 POST /api/auth/refresh            # Refresh JWT token
 GET  /api/auth/profile            # Get user profile
 PUT  /api/auth/profile            # Update user profile
 POST /api/auth/change-password    # Change password
 
-# Mobile Authentication
-POST /api/mobile/auth/phone-verify     # Send OTP to phone
-POST /api/mobile/auth/phone-confirm    # Confirm OTP
-POST /api/mobile/auth/anonymous        # Anonymous session
-POST /api/mobile/auth/social           # Social login (Google/Apple)
+# Mobile App Authentication (Company-Specific)
+POST /api/mobile/auth/first-responder    # Phone + password for first responders
+POST /api/mobile/auth/citizen           # Citizen authentication
+POST /api/mobile/auth/anonymous         # Anonymous session with company context
+POST /api/mobile/auth/refresh           # Refresh mobile tokens
+
+# API Key Validation
+POST /api/auth/validate-api-key         # Validate API key and get company context
+GET  /api/auth/api-key-info             # Get API key usage and limits
 ```
 
-### 3.2 Event Management Endpoints
+### 3.2 Company Management Endpoints (New)
+```
+# Company Administration (Super Admin Only)
+GET    /api/companies                   # List all companies
+POST   /api/companies                   # Create new company
+GET    /api/companies/:id               # Get company details
+PUT    /api/companies/:id               # Update company
+DELETE /api/companies/:id               # Deactivate company
+POST   /api/companies/:id/api-key/rotate # Rotate API key
+GET    /api/companies/:id/usage         # Get API usage statistics
+
+# Company Self-Management (Company Admin)
+GET    /api/company/profile             # Get own company profile
+PUT    /api/company/profile             # Update own company profile
+GET    /api/company/users               # List company users
+POST   /api/company/users               # Create company user (first responder)
+PUT    /api/company/users/:id           # Update company user
+GET    /api/company/event-types         # Get company event types
+POST   /api/company/event-types         # Create company event type
+GET    /api/company/analytics           # Company-specific analytics
+```
+
+### 3.3 Enhanced Event Management Endpoints
 ```
 # Standard Event Operations
 GET    /api/events                    # Get events with filters
