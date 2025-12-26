@@ -1,669 +1,595 @@
-# Development Workflow & Best Practices
+# Development Workflow
 
-## 🚀 Getting Started: Your First Day
+This document outlines the development processes, tools, and best practices for the Event Monitoring Platform. Following these guidelines ensures code quality, collaboration efficiency, and successful project delivery.
 
-### **Prerequisites Setup Checklist**
-Before you can start developing, ensure you have these tools installed:
+## Table of Contents
+1. [Git Workflow](#git-workflow)
+2. [Branching Strategy](#branching-strategy)
+3. [Code Review Process](#code-review-process)
+4. [Testing Strategy](#testing-strategy)
+5. [CI/CD Pipeline](#cicd-pipeline)
+6. [Development Environment](#development-environment)
+7. [Code Quality Standards](#code-quality-standards)
+8. [Release Process](#release-process)
 
-#### Required Software
-- [ ] **Node.js** (v18+) - [Download here](https://nodejs.org/)
-- [ ] **Python** (v3.9+) - [Download here](https://python.org/)
-- [ ] **Docker Desktop** - [Download here](https://docker.com/products/docker-desktop/)
-- [ ] **Git** - [Download here](https://git-scm.com/)
-- [ ] **VS Code** (recommended) - [Download here](https://code.visualstudio.com/)
+## Git Workflow
 
-#### Recommended VS Code Extensions
-```json
-{
-  "recommendations": [
-    "ms-vscode.vscode-typescript-next",
-    "bradlc.vscode-tailwindcss",
-    "ms-python.python",
-    "ms-vscode.vscode-json",
-    "esbenp.prettier-vscode",
-    "ms-vscode.vscode-eslint",
-    "ms-azuretools.vscode-docker"
-  ]
-}
+### Git Flow Strategy
+
+We use a modified Git Flow approach optimized for continuous deployment:
+
+```mermaid
+gitGraph
+    commit id: "Initial commit"
+    branch develop
+    checkout develop
+    commit id: "Feature development"
+    branch feature/login-system
+    checkout feature/login-system
+    commit id: "Implement login UI"
+    commit id: "Add authentication logic"
+    checkout develop
+    merge feature/login-system
+    branch release/v1.0.0
+    checkout release/v1.0.0
+    commit id: "Bump version"
+    commit id: "Update changelog"
+    checkout main
+    merge release/v1.0.0 tag: "v1.0.0"
+    checkout develop
+    merge release/v1.0.0
+    branch hotfix/security-patch
+    checkout hotfix/security-patch
+    commit id: "Fix security vulnerability"
+    checkout main
+    merge hotfix/security-patch tag: "v1.0.1"
+    checkout develop
+    merge hotfix/security-patch
 ```
 
-### **Repository Setup**
-```bash
-# 1. Clone the repository
-git clone https://github.com/your-team/event-monitoring-mvp.git
-cd event-monitoring-mvp
+### Branch Naming Convention
 
-# 2. Checkout your feature branch
-git checkout -b feature/your-name-first-task
+- `main`: Production-ready code
+- `develop`: Integration branch for features
+- `feature/`: New features (e.g., `feature/user-authentication`)
+- `bugfix/`: Bug fixes (e.g., `bugfix/login-validation`)
+- `hotfix/`: Critical production fixes (e.g., `hotfix/security-patch`)
+- `release/`: Release preparation (e.g., `release/v1.2.0`)
 
-# 3. Install dependencies (all services)
-npm run install-all
+### Commit Message Standards
 
-# 4. Start the development environment
-docker-compose up --build
+Follow conventional commit format:
+
+```
+type(scope): description
+
+[optional body]
+
+[optional footer]
 ```
 
-### **Environment Configuration**
-Create environment files for each service:
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting, etc.)
+- `refactor`: Code refactoring
+- `test`: Adding or updating tests
+- `chore`: Maintenance tasks
 
-#### **Backend Environment** (`.env`)
-```bash
-# Database Configuration
-MONGO_URL=mongodb://localhost:27017/eventmonitoring_dev
-MONGO_TEST_URL=mongodb://localhost:27017/eventmonitoring_test
+**Examples:**
+```
+feat(auth): add JWT token refresh functionality
 
-# JWT Configuration
-JWT_SECRET=your-super-secret-jwt-key-change-in-production
-JWT_EXPIRES_IN=7d
+fix(api): resolve memory leak in event processing
 
-# Server Configuration
-PORT=5000
-NODE_ENV=development
+docs(api): update endpoint documentation for reports
 
-# External Services
-MAPBOX_API_KEY=your-mapbox-api-key
-EMAIL_SERVICE_URL=http://localhost:8001
-SMS_SERVICE_URL=http://localhost:8002
-
-# AI Service Configuration
-AI_SERVICE_URL=http://localhost:8000
-AI_SERVICE_API_KEY=your-ai-service-key
+test(events): add unit tests for event validation
 ```
 
-#### **Frontend Environment** (`.env`)
-```bash
-# API Configuration
-REACT_APP_API_URL=http://localhost:5000/api
-REACT_APP_SOCKET_URL=http://localhost:5000
+## Branching Strategy
 
-# External Services
-REACT_APP_MAPBOX_TOKEN=your-mapbox-token
+### Feature Development
 
-# Development Settings
-REACT_APP_ENVIRONMENT=development
-REACT_APP_LOG_LEVEL=debug
-```
+1. **Create Feature Branch**
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b feature/user-profile-page
+   ```
 
-#### **AI Service Environment** (`.env`)
-```bash
-# Service Configuration
-PORT=8000
-HOST=0.0.0.0
-ENVIRONMENT=development
+2. **Develop and Commit**
+   ```bash
+   # Make changes
+   git add .
+   git commit -m "feat(profile): implement user profile page"
+   ```
 
-# Model Configuration
-MODEL_PATH=/app/models/yolov8n.pt
-CONFIDENCE_THRESHOLD=0.5
-DEVICE=cpu  # or 'cuda' if you have GPU
+3. **Push and Create PR**
+   ```bash
+   git push origin feature/user-profile-page
+   # Create pull request on GitHub
+   ```
 
-# Backend Integration
-BACKEND_URL=http://backend:5000
-API_KEY=your-ai-service-api-key
-```
+### Hotfix Process
 
-## 🔄 Development Workflow
+1. **Create Hotfix Branch**
+   ```bash
+   git checkout main
+   git pull origin main
+   git checkout -b hotfix/critical-security-fix
+   ```
 
-### **Branch Strategy: GitFlow Simplified**
+2. **Implement Fix**
+   ```bash
+   # Fix the issue
+   git add .
+   git commit -m "fix(security): patch XSS vulnerability"
+   ```
 
-#### **Branch Types**
-- **`main`** - Production-ready code only
-- **`develop`** - Latest development integration
-- **`feature/task-description`** - New features
-- **`bugfix/issue-description`** - Bug fixes
-- **`hotfix/critical-issue`** - Emergency production fixes
+3. **Merge to Main and Develop**
+   ```bash
+   git checkout main
+   git merge hotfix/critical-security-fix
+   git tag -a v1.1.1 -m "Security hotfix"
+   git push origin main --tags
 
-#### **Workflow Steps**
-```bash
-# 1. Start with latest develop branch
-git checkout develop
-git pull origin develop
+   git checkout develop
+   git merge hotfix/critical-security-fix
+   git push origin develop
+   ```
 
-# 2. Create your feature branch
-git checkout -b feature/add-camera-alerts
+## Code Review Process
 
-# 3. Work on your changes
-# ... make changes to code ...
+### Pull Request Guidelines
 
-# 4. Test your changes locally
-npm test
-docker-compose up --build
+**Before Creating PR:**
+- [ ] All tests pass locally
+- [ ] Code follows style guidelines
+- [ ] Documentation updated
+- [ ] Self-review completed
+- [ ] Branch up-to-date with develop
 
-# 5. Commit with descriptive messages
-git add .
-git commit -m "feat: add real-time camera offline alerts
-
-- Add Socket.IO listener for camera status changes
-- Update dashboard to show offline camera notifications
-- Add red indicator for offline cameras in camera list
-- Include unit tests for new notification system"
-
-# 6. Push to GitHub
-git push origin feature/add-camera-alerts
-
-# 7. Create Pull Request on GitHub
-# 8. Request code review from team members
-# 9. Address review feedback if needed
-# 10. Merge after approval
-```
-
-### **Commit Message Convention**
-We follow [Conventional Commits](https://conventionalcommits.org/) for clear commit history:
-
-```bash
-# Format: type(scope): description
-#
-# Types:
-feat:     # New feature
-fix:      # Bug fix
-docs:     # Documentation changes
-style:    # Code style changes (formatting, no logic change)
-refactor: # Code refactoring (no new features or bug fixes)
-test:     # Adding or updating tests
-chore:    # Build process or auxiliary tool changes
-
-# Examples:
-git commit -m "feat(auth): add password reset functionality"
-git commit -m "fix(cameras): resolve stream connection timeout issue"
-git commit -m "docs(readme): update installation instructions"
-git commit -m "test(events): add unit tests for event filtering"
-```
-
-## 🧪 Testing Strategy
-
-### **Testing Pyramid**
-
-#### **Unit Tests** (70% of tests)
-Test individual functions and components:
-
-```javascript
-// Example: Backend unit test
-describe('User Authentication', () => {
-  test('should hash password correctly', async () => {
-    const password = 'testPassword123';
-    const hashedPassword = await hashPassword(password);
-    
-    expect(hashedPassword).not.toBe(password);
-    expect(await comparePassword(password, hashedPassword)).toBe(true);
-  });
-  
-  test('should generate valid JWT token', () => {
-    const user = { id: '123', role: 'guard' };
-    const token = generateToken(user);
-    const decoded = verifyToken(token);
-    
-    expect(decoded.id).toBe(user.id);
-    expect(decoded.role).toBe(user.role);
-  });
-});
-```
-
-```javascript
-// Example: Frontend unit test
-describe('CameraCard Component', () => {
-  test('renders camera information correctly', () => {
-    const mockCamera = {
-      id: '1',
-      name: 'Main Entrance',
-      status: 'online',
-      location: 'Building A'
-    };
-    
-    render(<CameraCard camera={mockCamera} />);
-    
-    expect(screen.getByText('Main Entrance')).toBeInTheDocument();
-    expect(screen.getByText('online')).toBeInTheDocument();
-    expect(screen.getByText('Building A')).toBeInTheDocument();
-  });
-});
-```
-
-#### **Integration Tests** (20% of tests)
-Test how services work together:
-
-```javascript
-// Example: API integration test
-describe('Camera API Integration', () => {
-  test('should create and retrieve camera', async () => {
-    const cameraData = {
-      name: 'Test Camera',
-      streamUrl: 'rtsp://test.camera.com',
-      location: { lat: 40.7128, lng: -74.0060 }
-    };
-    
-    // Create camera
-    const createResponse = await request(app)
-      .post('/api/cameras')
-      .set('Authorization', `Bearer ${authToken}`)
-      .send(cameraData)
-      .expect(201);
-      
-    const cameraId = createResponse.body.id;
-    
-    // Retrieve camera
-    const getResponse = await request(app)
-      .get(`/api/cameras/${cameraId}`)
-      .set('Authorization', `Bearer ${authToken}`)
-      .expect(200);
-      
-    expect(getResponse.body.name).toBe(cameraData.name);
-    expect(getResponse.body.streamUrl).toBe(cameraData.streamUrl);
-  });
-});
-```
-
-#### **End-to-End Tests** (10% of tests)
-Test complete user workflows:
-
-```javascript
-// Example: E2E test with Playwright
-test('user can login and view dashboard', async ({ page }) => {
-  // Navigate to login page
-  await page.goto('/login');
-  
-  // Fill login form
-  await page.fill('[data-testid="username"]', 'testuser');
-  await page.fill('[data-testid="password"]', 'testpass');
-  await page.click('[data-testid="login-button"]');
-  
-  // Verify redirect to dashboard
-  await expect(page).toHaveURL('/dashboard');
-  await expect(page.locator('[data-testid="welcome-message"]')).toBeVisible();
-  
-  // Verify camera count is displayed
-  await expect(page.locator('[data-testid="camera-count"]')).toBeVisible();
-});
-```
-
-### **Running Tests**
-
-#### **All Services**
-```bash
-# Run all tests across all services
-npm run test:all
-
-# Run tests with coverage
-npm run test:coverage
-
-# Run tests in watch mode during development
-npm run test:watch
-```
-
-#### **Individual Services**
-```bash
-# Backend tests
-cd backend
-npm test
-npm run test:coverage
-
-# Frontend tests
-cd frontend
-npm test
-npm run test:coverage
-
-# AI Service tests
-cd ai-service
-python -m pytest
-python -m pytest --cov=src
-```
-
-## 🔍 Code Review Process
-
-### **Pull Request Template**
-Every PR should include:
-
+**PR Template:**
 ```markdown
 ## Description
-Brief description of changes and motivation
+Brief description of changes
 
 ## Type of Change
-- [ ] Bug fix (non-breaking change which fixes an issue)
-- [ ] New feature (non-breaking change which adds functionality)
-- [ ] Breaking change (fix or feature that would cause existing functionality to not work as expected)
+- [ ] Bug fix
+- [ ] New feature
+- [ ] Breaking change
 - [ ] Documentation update
 
 ## Testing
 - [ ] Unit tests added/updated
-- [ ] Integration tests added/updated
+- [ ] Integration tests pass
 - [ ] Manual testing completed
-- [ ] All tests passing
 
 ## Screenshots (if applicable)
-Include before/after screenshots for UI changes
+Add screenshots of UI changes
 
 ## Checklist
-- [ ] Code follows project style guidelines
-- [ ] Self-review completed
-- [ ] Code is commented where necessary
+- [ ] Code follows style guidelines
 - [ ] Documentation updated
-- [ ] No console.log or debug code left behind
+- [ ] Tests pass
+- [ ] No security vulnerabilities
 ```
 
-### **Review Checklist for Reviewers**
+### Review Process
 
-#### **Code Quality**
-- [ ] Code follows established patterns and conventions
-- [ ] Functions are small and focused (single responsibility)
-- [ ] Variable and function names are descriptive
-- [ ] No code duplication (DRY principle)
-- [ ] Error handling is comprehensive
-- [ ] Security considerations are addressed
+1. **Automated Checks**: CI runs tests, linting, security scans
+2. **Peer Review**: At least one team member reviews code
+3. **Approval**: Code owner approves changes
+4. **Merge**: Squash merge to develop branch
 
-#### **Functionality**
-- [ ] Feature works as described
-- [ ] Edge cases are handled
-- [ ] No obvious bugs or logical errors
-- [ ] Performance implications considered
-- [ ] Backward compatibility maintained
+### Code Review Checklist
 
-#### **Testing**
-- [ ] Adequate test coverage
-- [ ] Tests are meaningful and test the right things
-- [ ] All tests pass
-- [ ] No test flakiness
+**For Reviewers:**
+- [ ] Code is readable and well-documented
+- [ ] Business logic is correct
+- [ ] Security best practices followed
+- [ ] Performance considerations addressed
+- [ ] Tests are comprehensive
+- [ ] No hardcoded secrets or credentials
+- [ ] Error handling is appropriate
+- [ ] Database queries are optimized
 
-#### **Documentation**
-- [ ] Code is self-documenting with good naming
-- [ ] Complex logic is commented
-- [ ] API changes are documented
-- [ ] README updated if needed
+## Testing Strategy
 
-## 🔧 Development Tools & Scripts
+### Testing Pyramid
 
-### **Package.json Scripts**
-
-#### **Root Package.json**
-```json
-{
-  "scripts": {
-    "install-all": "npm install && cd frontend && npm install && cd ../backend && npm install && cd ../ai-service && pip install -r requirements.txt",
-    "dev": "docker-compose up --build",
-    "dev:services": "concurrently \"npm run dev:backend\" \"npm run dev:frontend\" \"npm run dev:ai\"",
-    "dev:backend": "cd backend && npm run dev",
-    "dev:frontend": "cd frontend && npm run start",
-    "dev:ai": "cd ai-service && python -m uvicorn app:app --reload --port 8000",
-    "test:all": "npm run test:backend && npm run test:frontend && npm run test:ai",
-    "test:backend": "cd backend && npm test",
-    "test:frontend": "cd frontend && npm test -- --coverage --verbose",
-    "test:ai": "cd ai-service && python -m pytest",
-    "lint:all": "npm run lint:backend && npm run lint:frontend",
-    "lint:backend": "cd backend && npm run lint",
-    "lint:frontend": "cd frontend && npm run lint",
-    "build:all": "npm run build:frontend && npm run build:backend",
-    "build:frontend": "cd frontend && npm run build",
-    "build:backend": "cd backend && npm run build",
-    "docker:build": "docker-compose build",
-    "docker:up": "docker-compose up",
-    "docker:down": "docker-compose down",
-    "docker:logs": "docker-compose logs -f",
-    "db:seed": "cd backend && npm run db:seed",
-    "db:reset": "cd backend && npm run db:reset"
-  }
-}
+```
+End-to-End Tests (5%)
+    ↕
+Integration Tests (15%)
+    ↕
+Unit Tests (80%)
 ```
 
-### **Development Shortcuts**
+### Unit Testing
 
-#### **VS Code Tasks** (`.vscode/tasks.json`)
-```json
-{
-  "version": "2.0.0",
-  "tasks": [
-    {
-      "label": "Start Dev Environment",
-      "type": "shell",
-      "command": "docker-compose up --build",
-      "group": "build",
-      "presentation": {
-        "echo": true,
-        "reveal": "always",
-        "panel": "new"
-      }
-    },
-    {
-      "label": "Run All Tests",
-      "type": "shell",
-      "command": "npm run test:all",
-      "group": "test",
-      "presentation": {
-        "echo": true,
-        "reveal": "always"
-      }
-    }
-  ]
-}
+**Frontend (Jest + React Testing Library):**
+```typescript
+describe('EventCard', () => {
+  it('displays event title and status', () => {
+    const event = {
+      id: '1',
+      title: 'Test Event',
+      status: 'active',
+      priority: 'high'
+    };
+
+    render(<EventCard event={event} />);
+
+    expect(screen.getByText('Test Event')).toBeInTheDocument();
+    expect(screen.getByText('active')).toBeInTheDocument();
+  });
+});
 ```
 
-#### **Makefile Shortcuts**
-```makefile
-# Quick development commands
-.PHONY: dev test clean install
+**Backend (Jest + Supertest):**
+```typescript
+describe('POST /api/events', () => {
+  it('creates new event with valid data', async () => {
+    const eventData = {
+      title: 'Test Event',
+      eventTypeId: testEventTypeId,
+      companyId: testCompanyId
+    };
 
-dev:
-	docker-compose up --build
+    const response = await request(app)
+      .post('/api/events')
+      .set('Authorization', `Bearer ${testToken}`)
+      .send(eventData)
+      .expect(201);
 
-test:
-	npm run test:all
-
-clean:
-	docker-compose down -v
-	docker system prune -f
-
-install:
-	npm run install-all
-
-seed:
-	npm run db:seed
-
-logs:
-	docker-compose logs -f
-
-restart:
-	docker-compose restart
-
-# Database operations
-db-reset:
-	docker-compose down -v
-	docker-compose up -d mongo
-	sleep 5
-	npm run db:seed
-
-# Production builds
-build:
-	npm run build:all
-	docker-compose build
-
-# Linting and formatting
-lint:
-	npm run lint:all
-
-format:
-	npm run format:all
+    expect(response.body.title).toBe('Test Event');
+  });
+});
 ```
 
-## 🐛 Debugging Guide
+### Integration Testing
 
-### **Common Issues & Solutions**
+**API Integration Tests:**
+```typescript
+describe('Event Report Flow', () => {
+  it('creates event from citizen report', async () => {
+    // Submit citizen report
+    const reportResponse = await request(app)
+      .post('/api/mobile/reports')
+      .set('X-API-Key', testApiKey)
+      .send(citizenReportData);
 
-#### **Frontend Issues**
+    // Verify event was created
+    const eventResponse = await request(app)
+      .get(`/api/events/${reportResponse.body.eventId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
 
-**Issue: "Module not found" errors**
+    expect(eventResponse.body.reports).toContain(reportResponse.body._id);
+  });
+});
+```
+
+### End-to-End Testing
+
+**Using Cypress:**
+```typescript
+describe('Event Management', () => {
+  it('allows operator to create and assign event', () => {
+    cy.login('operator@test.com', 'password');
+
+    cy.visit('/events');
+    cy.get('[data-cy=create-event]').click();
+
+    cy.get('[data-cy=event-title]').type('Test Incident');
+    cy.get('[data-cy=event-type]').select('Security');
+    cy.get('[data-cy=submit]').click();
+
+    cy.get('[data-cy=event-list]').should('contain', 'Test Incident');
+  });
+});
+```
+
+### Test Coverage Requirements
+
+- **Unit Tests**: Minimum 80% coverage
+- **Integration Tests**: All critical user journeys
+- **E2E Tests**: Core workflows and user journeys
+
+## CI/CD Pipeline
+
+### GitHub Actions Workflow
+
+```yaml
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      mongodb:
+        image: mongo:6.0
+        ports:
+          - 27017:27017
+
+    steps:
+      - uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run linting
+        run: npm run lint
+
+      - name: Run tests
+        run: npm run test:ci
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+
+  security:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Run security scan
+        uses: securecodewarrior/github-action-gosec@master
+        with:
+          args: './...'
+
+  deploy-staging:
+    needs: [test, security]
+    if: github.ref == 'refs/heads/develop'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to staging
+        run: |
+          echo "Deploy to staging environment"
+
+  deploy-production:
+    needs: [test, security]
+    if: github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy to production
+        run: |
+          echo "Deploy to production environment"
+```
+
+### Pipeline Stages
+
+1. **Lint**: Code style and formatting checks
+2. **Test**: Unit and integration tests
+3. **Security**: Vulnerability scanning
+4. **Build**: Docker image creation
+5. **Deploy**: Environment-specific deployment
+
+## Development Environment
+
+### Local Setup
+
+**Prerequisites:**
+- Node.js 18+
+- Python 3.9+
+- Docker Desktop
+- Git
+
+**Setup Steps:**
 ```bash
-# Solution: Clear node_modules and reinstall
-cd frontend
-rm -rf node_modules package-lock.json
+# Clone repository
+git clone <repository-url>
+cd event-monitoring-mvp
+
+# Start infrastructure
+docker-compose up -d mongodb redis
+
+# Backend setup
+cd backend
 npm install
+cp .env.example .env
+npm run setup-db
+npm run dev
+
+# Frontend setup (new terminal)
+cd frontend
+npm install
+cp .env.example .env
 npm start
-```
 
-**Issue: TypeScript errors**
-```bash
-# Solution: Check types and restart TypeScript service
-npm run type-check
-# In VS Code: Ctrl+Shift+P → "TypeScript: Restart TS Server"
-```
-
-**Issue: Socket.IO connection failed**
-```javascript
-// Check backend is running and Socket.IO configuration
-// Frontend: src/services/socket.ts
-const socket = io('http://localhost:5000', {
-  autoConnect: false,
-  timeout: 20000,
-});
-
-// Backend: app.ts
-const io = new Server(server, {
-  cors: {
-    origin: "http://localhost:3000",
-    methods: ["GET", "POST"]
-  }
-});
-```
-
-#### **Backend Issues**
-
-**Issue: MongoDB connection failed**
-```bash
-# Solution: Ensure MongoDB is running
-docker-compose up mongo
-# Or locally:
-mongod --dbpath /usr/local/var/mongodb
-```
-
-**Issue: JWT token errors**
-```javascript
-// Check JWT_SECRET is set in environment
-console.log('JWT_SECRET exists:', !!process.env.JWT_SECRET);
-
-// Verify token format in frontend
-const token = localStorage.getItem('token');
-console.log('Token format:', token?.startsWith('Bearer ') ? 'Correct' : 'Missing Bearer prefix');
-```
-
-#### **AI Service Issues**
-
-**Issue: Python dependencies missing**
-```bash
-# Solution: Reinstall requirements
+# AI service setup (new terminal)
 cd ai-service
 pip install -r requirements.txt
-# Or with virtual environment:
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-pip install -r requirements.txt
+python main.py
 ```
 
-**Issue: YOLO model not loading**
-```python
-# Check model file exists
-import os
-model_path = '/app/models/yolov8n.pt'
-print(f"Model exists: {os.path.exists(model_path)}")
+### Environment Configuration
 
-# Download model if missing
-from ultralytics import YOLO
-model = YOLO('yolov8n.pt')  # Auto-downloads if not present
-```
-
-### **Debugging Tools**
-
-#### **Browser DevTools**
-```javascript
-// Frontend debugging helpers
-console.log('Redux State:', store.getState());
-console.log('Socket connected:', socket.connected);
-
-// Network tab: Check API requests
-// Console tab: Check for JavaScript errors
-// Application tab: Check localStorage and cookies
-```
-
-#### **Backend Debugging**
-```javascript
-// Debug middleware
-app.use((req, res, next) => {
-  console.log(`${req.method} ${req.path}`, {
-    body: req.body,
-    headers: req.headers,
-    user: req.userId
-  });
-  next();
-});
-
-// Debug database queries
-mongoose.set('debug', process.env.NODE_ENV === 'development');
-```
-
-#### **Docker Debugging**
+**.env Structure:**
 ```bash
-# View container logs
-docker-compose logs -f [service-name]
+# Application
+NODE_ENV=development
+PORT=3000
 
-# Execute commands in running container
-docker-compose exec backend bash
-docker-compose exec mongo mongo
+# Database
+MONGODB_URI=mongodb://localhost:27017/event-monitoring-dev
 
-# Check container resource usage
-docker stats
+# Authentication
+JWT_SECRET=your-super-secret-jwt-key
+JWT_EXPIRES_IN=24h
 
-# Rebuild specific service
-docker-compose build [service-name]
-docker-compose up [service-name]
+# External Services
+REDIS_URL=redis://localhost:6379
+
+# File Storage
+AWS_S3_BUCKET=dev-event-monitoring-files
+AWS_ACCESS_KEY_ID=your-access-key
+AWS_SECRET_ACCESS_KEY=your-secret-key
+
+# AI Service
+AI_SERVICE_URL=http://localhost:8000
+
+# Email (optional)
+SMTP_HOST=smtp.gmail.com
+SMTP_PORT=587
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
 ```
 
-## 📊 Performance Monitoring
+## Code Quality Standards
 
-### **Development Metrics**
+### TypeScript Standards
 
-#### **Frontend Performance**
+**tsconfig.json:**
+```json
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "module": "commonjs",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "declaration": true,
+    "outDir": "./dist",
+    "rootDir": "./src"
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "**/*.test.ts"]
+}
+```
+
+### ESLint Configuration
+
+**.eslintrc.js:**
 ```javascript
-// React DevTools Profiler
-// Chrome DevTools Lighthouse
-// Bundle analyzer
-npm run analyze
-
-// Performance monitoring
-import { getCLS, getFID, getFCP, getLCP, getTTFB } from 'web-vitals';
-
-getCLS(console.log);
-getFID(console.log);
-getFCP(console.log);
-getLCP(console.log);
-getTTFB(console.log);
+module.exports = {
+  env: {
+    node: true,
+    es2021: true,
+  },
+  extends: [
+    'eslint:recommended',
+    '@typescript-eslint/recommended',
+    'prettier',
+  ],
+  parser: '@typescript-eslint/parser',
+  parserOptions: {
+    ecmaVersion: 12,
+    sourceType: 'module',
+  },
+  plugins: ['@typescript-eslint'],
+  rules: {
+    '@typescript-eslint/no-unused-vars': ['error', { argsIgnorePattern: '^_' }],
+    '@typescript-eslint/explicit-function-return-type': 'warn',
+    '@typescript-eslint/no-explicit-any': 'warn',
+  },
+};
 ```
 
-#### **Backend Performance**
-```javascript
-// API response times
-app.use((req, res, next) => {
-  const start = Date.now();
-  res.on('finish', () => {
-    const duration = Date.now() - start;
-    console.log(`${req.method} ${req.path} - ${duration}ms`);
-  });
-  next();
-});
+### Pre-commit Hooks
 
-// Database query performance
-mongoose.set('debug', (collectionName, method, query, doc) => {
-  console.log(`${collectionName}.${method}`, JSON.stringify(query), doc);
-});
+**Husky + lint-staged:**
+```json
+{
+  "husky": {
+    "hooks": {
+      "pre-commit": "lint-staged",
+      "commit-msg": "commitlint -E HUSKY_GIT_PARAMS"
+    }
+  },
+  "lint-staged": {
+    "*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write",
+      "jest --findRelatedTests --passWithNoTests"
+    ],
+    "*.{json,md}": [
+      "prettier --write"
+    ]
+  }
+}
 ```
 
-## 🎯 Success Metrics
+## Release Process
 
-### **Development Quality Metrics**
-- **Code Coverage**: >80% for all services
-- **Build Time**: <5 minutes for full build
-- **Test Execution**: <2 minutes for all unit tests
-- **PR Review Time**: <24 hours average
-- **Bug Rate**: <1 bug per 100 lines of code
+### Version Numbering
 
-### **Performance Targets**
-- **Frontend Load Time**: <2 seconds initial load
-- **API Response Time**: <200ms average
-- **Real-time Latency**: <100ms for Socket.IO events
-- **Database Query Time**: <50ms average
-- **AI Processing**: <500ms per frame
+Follow [Semantic Versioning](https://semver.org/):
+- **MAJOR**: Breaking changes
+- **MINOR**: New features (backward compatible)
+- **PATCH**: Bug fixes (backward compatible)
 
-This development workflow ensures consistent, high-quality code delivery while maintaining team productivity and code maintainability. Following these practices will help new team members quickly become productive contributors to the project!
+### Release Steps
+
+1. **Create Release Branch**
+   ```bash
+   git checkout develop
+   git pull origin develop
+   git checkout -b release/v1.2.0
+   ```
+
+2. **Update Version**
+   ```bash
+   # Update package.json
+   npm version 1.2.0 --no-git-tag-version
+
+   # Update changelog
+   # Update version in docs
+   ```
+
+3. **Testing**
+   ```bash
+   # Run full test suite
+   npm run test
+
+   # Manual testing checklist
+   # - All user journeys work
+   # - No regressions
+   # - Performance acceptable
+   ```
+
+4. **Merge and Tag**
+   ```bash
+   git checkout main
+   git merge release/v1.2.0
+   git tag -a v1.2.0 -m "Release version 1.2.0"
+   git push origin main --tags
+
+   git checkout develop
+   git merge release/v1.2.0
+   git push origin develop
+
+   git branch -d release/v1.2.0
+   ```
+
+5. **Deploy**
+   ```bash
+   # Trigger production deployment
+   # Update documentation
+   # Notify stakeholders
+   ```
+
+### Rollback Procedure
+
+If issues are discovered post-release:
+
+1. **Assess Impact**: Determine severity and user impact
+2. **Create Hotfix**: If critical, create hotfix branch from main
+3. **Deploy Previous Version**: Roll back to previous stable version
+4. **Investigate**: Root cause analysis and fix development
+5. **Re-release**: Deploy corrected version
+
+This development workflow ensures consistent, high-quality code delivery while maintaining system stability and enabling rapid iteration.

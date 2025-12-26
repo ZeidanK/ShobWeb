@@ -1,714 +1,454 @@
-# Technology Stack Guide - Understanding Our Tools
+# Technology Stack and Architecture
 
-## 🎓 Learning Path: From Beginner to Advanced
+## Overview
+The Event Monitoring Platform employs a modern, scalable technology stack designed for high-performance incident detection, real-time processing, and multi-tenant operation. This document provides detailed information about each technology component and architectural decisions.
 
-This guide explains all the technologies we use in our Event Monitoring MVP, designed specifically for students and new developers. Each section includes what the technology does, why we chose it, and how it fits into our project.
+## Core Architecture
 
-## 🌐 Frontend Technologies (What Users See)
+### Microservices Design
+The platform follows a microservices architecture with clear service boundaries:
 
-### React.js ⚛️
-**What it is**: A JavaScript library for building user interfaces
-**Think of it as**: Like building with LEGO blocks - each component is a reusable piece
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   API Gateway   │    │  Auth Service  │    │  Event Service  │
+│                 │    │                 │    │                 │
+│ • Request       │    │ • JWT Tokens    │    │ • Event Mgmt    │
+│ • Routing       │    │ • API Keys      │    │ • Aggregation   │
+│ • Rate Limiting │    │ • Sessions      │    │ • Real-time     │
+└─────────────────┘    └─────────────────┘    └─────────────────┘
+         │                       │                       │
+         └───────────────────────┼───────────────────────┘
+                                 │
+                    ┌─────────────────┐    ┌─────────────────┐
+                    │  User Service  │    │  Report Service │
+                    │                 │    │                 │
+                    │ • Multi-tenant  │    │ • Submissions   │
+                    │ • Roles/Perms   │    │ • Validation    │
+                    │ • Profiles      │    │ • Linking       │
+                    └─────────────────┘    └─────────────────┘
+```
 
-#### Why We Chose React
-- **Component-Based**: Build once, use anywhere (like creating a "Login Button" and using it on multiple pages)
-- **Large Community**: Millions of developers, tons of tutorials and help
-- **Job Market**: High demand skill in the industry
-- **Fast Development**: Hot reloading means you see changes instantly
+## Backend Services
 
-#### How We Use It
-```javascript
-// Example: A simple camera component
-function CameraCard({ camera }) {
-  return (
-    <div className="camera-card">
-      <h3>{camera.name}</h3>
-      <p>Status: {camera.online ? 'Online' : 'Offline'}</p>
-    </div>
-  );
+### Node.js + Express + TypeScript
+
+**Why Node.js?**
+- **Non-blocking I/O**: Perfect for real-time applications with WebSocket connections
+- **NPM Ecosystem**: Rich ecosystem of packages for various functionalities
+- **JavaScript Everywhere**: Unified language across frontend and backend
+- **Performance**: V8 engine provides excellent performance for I/O operations
+
+**Why Express?**
+- **Minimalist**: Lightweight framework that doesn't impose structure
+- **Middleware**: Powerful middleware system for authentication, logging, CORS
+- **Routing**: Flexible routing with parameter handling
+- **Community**: Extensive documentation and community support
+
+**Why TypeScript?**
+- **Type Safety**: Compile-time type checking prevents runtime errors
+- **Developer Experience**: Excellent IDE support with IntelliSense
+- **Refactoring**: Safe refactoring with type-aware tools
+- **Scalability**: Better maintainability for large codebases
+
+**Key Packages:**
+```json
+{
+  "express": "^4.18.0",
+  "mongoose": "^7.0.0",
+  "jsonwebtoken": "^9.0.0",
+  "bcryptjs": "^2.4.3",
+  "socket.io": "^4.7.0",
+  "helmet": "^6.0.0",
+  "cors": "^2.8.5",
+  "winston": "^3.8.0",
+  "joi": "^17.9.0"
 }
 ```
 
-#### Learning Resources
-- **Official Tutorial**: [React Tutorial](https://react.dev/learn)
-- **Our Implementation**: Look at `/frontend/src/components/` folder
-- **Key Concepts to Learn**: Components, Props, State, JSX syntax
+### MongoDB + Mongoose
 
----
+**Why MongoDB?**
+- **Document Model**: Flexible schema for varying event data structures
+- **Geo-spatial Queries**: Native support for location-based event filtering
+- **Scalability**: Horizontal scaling with sharding
+- **JSON-like**: Natural fit with JavaScript applications
+- **Multi-tenant**: Database-level isolation capabilities
 
-### TypeScript 📝
-**What it is**: JavaScript with type checking
-**Think of it as**: Adding guardrails to prevent common programming mistakes
+**Why Mongoose?**
+- **Schema Validation**: Ensures data consistency and validation
+- **Type Safety**: TypeScript integration for model definitions
+- **Middleware**: Pre/post hooks for business logic
+- **Query Building**: Fluent API for complex queries
 
-#### Why We Chose TypeScript
-- **Catch Bugs Early**: Tells you about errors before your code runs
-- **Better IDE Support**: Auto-completion and intelligent suggestions
-- **Easier Refactoring**: Change code safely across the entire project
-- **Industry Standard**: Most modern projects use TypeScript
-
-#### Example Comparison
+**Database Design:**
 ```javascript
-// Regular JavaScript (can cause runtime errors)
-function addNumbers(a, b) {
-  return a + b;
-}
-addNumbers("5", 3); // Returns "53" (string concatenation) - Bug!
+// Multi-tenant collection pattern
+const eventSchema = new Schema({
+  companyId: { type: ObjectId, required: true, index: true },
+  eventTypeId: { type: ObjectId, ref: 'EventType' },
+  // ... other fields
+});
 
-// TypeScript (prevents the error)
-function addNumbers(a: number, b: number): number {
-  return a + b;
-}
-addNumbers("5", 3); // ERROR: Cannot assign string to number parameter
+// Compound indexes for performance
+eventSchema.index({ companyId: 1, status: 1, createdAt: -1 });
+eventSchema.index({ companyId: 1, location: '2dsphere' });
 ```
 
-#### Learning Resources
-- **Official Handbook**: [TypeScript Handbook](https://www.typescriptlang.org/docs/)
-- **Our Types**: Check `/frontend/src/types/` and `/backend/src/types/`
-- **Key Concepts**: Basic types, interfaces, generics
+## Frontend Architecture
 
----
+### React + TypeScript
 
-### Material-UI (MUI) 🎨
-**What it is**: Pre-built, beautiful UI components for React
-**Think of it as**: A design toolkit with professional-looking buttons, forms, and layouts
+**Why React?**
+- **Component-Based**: Modular, reusable UI components
+- **Virtual DOM**: Efficient rendering and updates
+- **Ecosystem**: Rich ecosystem of libraries and tools
+- **Community**: Largest frontend framework community
 
-#### Why We Chose Material-UI
-- **Google's Design System**: Based on Material Design principles
-- **Accessibility**: Built-in support for screen readers and keyboard navigation
-- **Consistency**: All components look and feel cohesive
-- **Time Saving**: Don't need to design buttons, forms, etc. from scratch
+**Why TypeScript?**
+- **Type Safety**: Prevents common JavaScript errors
+- **Better DX**: Enhanced IDE support and refactoring
+- **Self-Documenting**: Types serve as documentation
+- **Scalability**: Maintainable code as application grows
 
-#### How We Use It
-```javascript
-import { Button, TextField, Card } from '@mui/material';
-
-function LoginForm() {
-  return (
-    <Card>
-      <TextField label="Username" variant="outlined" />
-      <TextField label="Password" type="password" variant="outlined" />
-      <Button variant="contained" color="primary">
-        Login
-      </Button>
-    </Card>
-  );
+**State Management - Redux Toolkit**
+```typescript
+// Modern Redux with TypeScript
+interface EventState {
+  events: Event[];
+  loading: boolean;
+  error: string | null;
 }
-```
 
-#### Learning Resources
-- **Official Documentation**: [MUI Docs](https://mui.com/)
-- **Our Usage**: Look at any component in `/frontend/src/components/`
-- **Key Concepts**: Theme system, component props, responsive design
-
----
-
-### Redux Toolkit 🗃️
-**What it is**: State management for React applications
-**Think of it as**: A global storage box that any component can read from or write to
-
-#### Why We Need State Management
-Imagine you're logged in as "John Smith". Without Redux:
-- Every component needs to ask "Who is logged in?" 
-- When you logout, every component needs to be told individually
-- Data gets messy and hard to track
-
-With Redux:
-- One central place stores "John Smith is logged in"
-- Any component can check this instantly
-- When you logout, one action updates everywhere
-
-#### How We Use It
-```javascript
-// Store user information globally
-const authSlice = createSlice({
-  name: 'auth',
-  initialState: { user: null, isLoggedIn: false },
+const eventSlice = createSlice({
+  name: 'events',
+  initialState,
   reducers: {
-    login: (state, action) => {
-      state.user = action.payload;
-      state.isLoggedIn = true;
-    },
-    logout: (state) => {
-      state.user = null;
-      state.isLoggedIn = false;
+    setEvents: (state, action: PayloadAction<Event[]>) => {
+      state.events = action.payload;
     }
   }
 });
 ```
 
-#### Learning Resources
-- **Redux Toolkit Documentation**: [Redux Toolkit](https://redux-toolkit.js.org/)
-- **Our Implementation**: `/frontend/src/store/store.ts`
-- **Key Concepts**: Store, slices, actions, reducers
+### UI Component Library - Material-UI
 
----
+**Why Material-UI?**
+- **Design System**: Consistent, professional appearance
+- **Accessibility**: Built-in accessibility features
+- **Theming**: Customizable design tokens
+- **Component Rich**: Comprehensive component library
+- **TypeScript**: Full TypeScript support
 
-### React Query (TanStack Query) 🔄
-**What it is**: Data fetching and caching library
-**Think of it as**: Smart waiter who remembers your orders and doesn't ask the kitchen again if you just ordered
+**Key Components:**
+- **Data Grid**: Advanced table with sorting, filtering, pagination
+- **Maps**: Integration with mapping libraries
+- **Forms**: Validation and error handling
+- **Charts**: Data visualization components
 
-#### Why We Use React Query
-- **Automatic Caching**: Fetch data once, use it everywhere
-- **Background Updates**: Keeps data fresh without user action
-- **Loading States**: Automatically handles loading, error, and success states
-- **Offline Support**: Works even when internet is spotty
+## AI Service Architecture
 
-#### Example
-```javascript
-// Fetch camera data with automatic caching
-function CameraList() {
-  const { data: cameras, isLoading, error } = useQuery({
-    queryKey: ['cameras'],
-    queryFn: () => fetch('/api/cameras').then(res => res.json()),
-    refetchInterval: 5000 // Update every 5 seconds
-  });
+### Python + FastAPI
 
-  if (isLoading) return <div>Loading cameras...</div>;
-  if (error) return <div>Error loading cameras</div>;
-  
-  return <div>{cameras.map(camera => <CameraCard key={camera.id} camera={camera} />)}</div>;
-}
-```
+**Why Python?**
+- **ML Ecosystem**: Rich ecosystem of ML libraries (PyTorch, TensorFlow)
+- **Scientific Computing**: NumPy, SciPy, OpenCV support
+- **Productivity**: Rapid development and prototyping
 
-#### Learning Resources
-- **Official Documentation**: [TanStack Query](https://tanstack.com/query/latest)
-- **Our Usage**: Look for `useQuery` in components
-- **Key Concepts**: Queries, mutations, caching, invalidation
+**Why FastAPI?**
+- **Performance**: High performance with async support
+- **Type Safety**: Pydantic models for validation
+- **Documentation**: Automatic OpenAPI documentation
+- **Modern**: Built on ASGI for async operations
 
----
-
-## 🖥️ Backend Technologies (The Server Brain)
-
-### Node.js 💚
-**What it is**: JavaScript runtime that lets you write server code in JavaScript
-**Think of it as**: Using the same language (JavaScript) for both frontend and backend
-
-#### Why We Chose Node.js
-- **Same Language**: Team only needs to learn JavaScript/TypeScript
-- **Fast Development**: Share code between frontend and backend
-- **Great Package Ecosystem**: NPM has packages for everything
-- **Real-time Features**: Excellent WebSocket support for live updates
-
-#### How It Works
-```javascript
-// Simple server example
-const express = require('express');
-const app = express();
-
-app.get('/api/cameras', (req, res) => {
-  // Fetch cameras from database
-  const cameras = getCamerasFromDatabase();
-  res.json(cameras);
-});
-
-app.listen(5000, () => {
-  console.log('Server running on port 5000');
-});
-```
-
-#### Learning Resources
-- **Official Documentation**: [Node.js Docs](https://nodejs.org/en/docs/)
-- **Our Implementation**: `/backend/src/app.ts`
-- **Key Concepts**: Event loop, modules, async/await
-
----
-
-### Express.js 🚂
-**What it is**: Web framework for Node.js that makes building APIs easy
-**Think of it as**: The postal system that routes requests to the right destination
-
-#### Why We Use Express
-- **Simple Routing**: Easy to define API endpoints
-- **Middleware Support**: Add authentication, logging, etc. easily
-- **Industry Standard**: Most Node.js projects use Express
-- **Flexible**: Can build APIs, websites, or both
-
-#### How We Structure Our API
-```javascript
-// User authentication routes
-app.post('/api/auth/login', loginController);
-app.post('/api/auth/register', registerController);
-app.get('/api/auth/me', authenticateToken, getCurrentUser);
-
-// Camera management routes
-app.get('/api/cameras', authenticateToken, getAllCameras);
-app.post('/api/cameras', authenticateToken, addCamera);
-app.put('/api/cameras/:id', authenticateToken, updateCamera);
-app.delete('/api/cameras/:id', authenticateToken, deleteCamera);
-```
-
-#### Learning Resources
-- **Official Documentation**: [Express.js](https://expressjs.com/)
-- **Our Routes**: `/backend/src/routes/` folder
-- **Key Concepts**: Routing, middleware, request/response objects
-
----
-
-### MongoDB 🍃
-**What it is**: NoSQL database that stores data as JSON-like documents
-**Think of it as**: A filing cabinet where each folder can have different types of documents
-
-#### Why We Chose MongoDB
-- **Flexible Schema**: Easy to change data structure as project grows
-- **JSON-like**: Data looks similar to JavaScript objects
-- **Scalable**: Handles large amounts of data efficiently
-- **Developer Friendly**: Easy to work with for web applications
-
-#### Data Structure Examples
-```javascript
-// User document
-{
-  "_id": "user123",
-  "username": "john_doe",
-  "email": "john@example.com",
-  "role": "security_guard",
-  "createdAt": "2024-01-15T10:30:00Z",
-  "profile": {
-    "firstName": "John",
-    "lastName": "Doe",
-    "department": "Security"
-  }
-}
-
-// Camera document
-{
-  "_id": "cam456",
-  "name": "Main Entrance Camera",
-  "location": {
-    "latitude": 40.7128,
-    "longitude": -74.0060,
-    "address": "123 Main St, New York"
-  },
-  "streamUrl": "rtsp://camera.example.com:554/stream",
-  "status": "online",
-  "settings": {
-    "resolution": "1920x1080",
-    "frameRate": 30,
-    "nightVision": true
-  }
-}
-```
-
-#### Learning Resources
-- **Official Documentation**: [MongoDB Docs](https://docs.mongodb.com/)
-- **Our Models**: `/backend/src/models/` folder
-- **Key Concepts**: Documents, collections, queries, indexing
-
----
-
-### Socket.IO 📡
-**What it is**: Real-time communication between server and browser
-**Think of it as**: Walkie-talkies between the server and web page
-
-#### Why We Need Real-Time Communication
-In a security system, things happen fast:
-- Camera goes offline → Security team needs to know immediately
-- AI detects intrusion → Alert must appear instantly on all screens
-- New event occurs → All operators should see it without refreshing
-
-#### How It Works
-```javascript
-// Server sends real-time updates
-io.emit('camera-status-changed', {
-  cameraId: 'cam456',
-  status: 'offline',
-  timestamp: new Date()
-});
-
-io.emit('new-event', {
-  id: 'event789',
-  type: 'person_detected',
-  cameraId: 'cam456',
-  confidence: 0.95
-});
-
-// Frontend listens for updates
-socket.on('camera-status-changed', (data) => {
-  updateCameraStatus(data.cameraId, data.status);
-});
-
-socket.on('new-event', (event) => {
-  addEventToList(event);
-  showNotification(`New ${event.type} detected!`);
-});
-```
-
-#### Learning Resources
-- **Official Documentation**: [Socket.IO](https://socket.io/docs/)
-- **Our Implementation**: Look for `io.emit` in backend, `socket.on` in frontend
-- **Key Concepts**: Events, rooms, namespaces, acknowledgments
-
----
-
-## 🤖 AI/ML Technologies (The Smart Brain)
-
-### Python 🐍
-**What it is**: Programming language excellent for AI and data science
-**Think of it as**: The preferred language for teaching computers to "see" and "understand"
-
-#### Why Python for AI
-- **AI Libraries**: TensorFlow, PyTorch, OpenCV all built for Python
-- **Easy Syntax**: Beginner-friendly language
-- **Data Science**: Great tools for working with data
-- **Community**: Huge AI/ML community and resources
-
-#### Basic AI Service Structure
+**AI Pipeline:**
 ```python
-# AI service main application
-from fastapi import FastAPI
-import cv2
+# YOLOv8 object detection pipeline
 from ultralytics import YOLO
+import cv2
 
-app = FastAPI()
-model = YOLO('yolov8n.pt')  # Load AI model
+model = YOLO('yolov8n.pt')  # Load model
 
-@app.post("/analyze-frame")
-async def analyze_frame(image_data):
-    # Process the image
-    results = model(image_data)
-    
-    # Extract detected objects
+def detect_objects(frame):
+    results = model(frame, conf=0.5)  # Run inference
     detections = []
     for result in results:
         for box in result.boxes:
-            detections.append({
-                'class': box.cls,
-                'confidence': box.conf,
-                'coordinates': box.xyxy
-            })
-    
-    return {'detections': detections}
+            detection = {
+                'class': model.names[int(box.cls)],
+                'confidence': float(box.conf),
+                'bbox': box.xyxy.tolist()
+            }
+            detections.append(detection)
+    return detections
 ```
 
-#### Learning Resources
-- **Python Tutorial**: [Python.org Tutorial](https://docs.python.org/3/tutorial/)
-- **Our AI Service**: `/ai-service/` folder
-- **Key Concepts**: Functions, classes, modules, data types
+## Real-time Communication
 
----
+### WebSocket Implementation
 
-### YOLOv8 (You Only Look Once) 👁️
-**What it is**: State-of-the-art object detection AI model
-**Think of it as**: A computer vision system that can instantly identify objects in images
+**Why WebSockets?**
+- **Bidirectional**: Real-time communication in both directions
+- **Efficient**: Lower overhead than polling
+- **Persistent**: Maintains connection for instant updates
+- **Fallback**: Socket.io provides fallback mechanisms
 
-#### How YOLO Works
-1. **Input**: Give it a photo or video frame
-2. **Processing**: Scans the entire image in one pass
-3. **Output**: Returns what objects it found and where they are
+**Implementation:**
+```typescript
+// Frontend WebSocket client
+import io from 'socket.io-client';
 
-#### What It Can Detect
-- **People**: Individuals, groups, body positions
-- **Vehicles**: Cars, trucks, bikes, motorcycles
-- **Objects**: Bags, weapons, phones, laptops
-- **Animals**: Dogs, cats, birds
+const socket = io(process.env.REACT_APP_WS_URL, {
+  auth: { token: localStorage.getItem('authToken') }
+});
 
-#### Example Detection Result
-```python
-# YOLO analyzes a frame and returns:
-{
-  'detections': [
-    {
-      'class': 'person',
-      'confidence': 0.95,
-      'box': [100, 150, 200, 400],  # x1, y1, x2, y2 coordinates
-      'center': [150, 275]
-    },
-    {
-      'class': 'car',
-      'confidence': 0.87,
-      'box': [300, 200, 600, 350],
-      'center': [450, 275]
-    }
-  ]
-}
+// Listen for real-time updates
+socket.on('event_created', (event) => {
+  dispatch(addEvent(event));
+});
+
+socket.on('event_updated', (update) => {
+  dispatch(updateEvent(update));
+});
 ```
 
-#### Learning Resources
-- **Ultralytics Documentation**: [YOLOv8 Docs](https://docs.ultralytics.com/)
-- **Computer Vision Course**: [CS231n Stanford](http://cs231n.stanford.edu/)
-- **Key Concepts**: Object detection, neural networks, confidence scores
+## Infrastructure and Deployment
 
----
+### Docker Containerization
 
-### OpenCV 📹
-**What it is**: Computer vision library for image and video processing
-**Think of it as**: Photoshop for programmers, but automated
+**Why Docker?**
+- **Consistency**: Same environment across development, staging, production
+- **Isolation**: Service isolation and dependency management
+- **Scalability**: Easy horizontal scaling
+- **Portability**: Run anywhere with container runtime
 
-#### What OpenCV Does
-- **Read Videos**: Load video files or camera streams
-- **Process Images**: Resize, filter, enhance images
-- **Draw Annotations**: Add rectangles, text, lines to images
-- **Video Analysis**: Detect motion, track objects
+**Multi-stage Dockerfile:**
+```dockerfile
+# Build stage
+FROM node:18-alpine AS builder
+WORKDIR /app
+COPY package*.json ./
+RUN npm ci --only=production
 
-#### How We Use It
-```python
-import cv2
-
-# Read video frame
-cap = cv2.VideoCapture('rtsp://camera-url')
-ret, frame = cap.read()
-
-# Resize frame for processing
-frame = cv2.resize(frame, (640, 480))
-
-# Draw detection box on frame
-cv2.rectangle(frame, (x1, y1), (x2, y2), (0, 255, 0), 2)
-cv2.putText(frame, 'Person Detected', (x1, y1-10), 
-            cv2.FONT_HERSHEY_SIMPLEX, 0.9, (0, 255, 0), 2)
-
-# Save or stream the annotated frame
-cv2.imwrite('detection_result.jpg', frame)
+# Production stage
+FROM node:18-alpine AS production
+WORKDIR /app
+COPY --from=builder /app/node_modules ./node_modules
+COPY . .
+EXPOSE 3000
+CMD ["npm", "start"]
 ```
 
-#### Learning Resources
-- **OpenCV Documentation**: [OpenCV Docs](https://docs.opencv.org/)
-- **Python OpenCV Tutorial**: [OpenCV Python Tutorial](https://opencv-python-tutroals.readthedocs.io/)
-- **Key Concepts**: Image arrays, color spaces, transformations
+### Docker Compose for Development
 
----
-
-### FastAPI ⚡
-**What it is**: Modern Python web framework for building APIs
-**Think of it as**: Express.js but for Python, with automatic documentation
-
-#### Why We Chose FastAPI for AI Service
-- **Fast Performance**: One of the fastest Python frameworks
-- **Automatic Documentation**: Generates API docs automatically
-- **Type Safety**: Built-in support for Python type hints
-- **Async Support**: Handle multiple requests simultaneously
-
-#### Example AI API Endpoint
-```python
-from fastapi import FastAPI, File, UploadFile
-from pydantic import BaseModel
-
-app = FastAPI(title="Event Monitoring AI Service")
-
-class DetectionResponse(BaseModel):
-    objects_found: int
-    detections: list
-    processing_time: float
-
-@app.post("/detect", response_model=DetectionResponse)
-async def detect_objects(image: UploadFile = File(...)):
-    """
-    Analyze an image and detect objects
-    """
-    # Process the uploaded image
-    image_data = await image.read()
-    results = await process_with_yolo(image_data)
-    
-    return DetectionResponse(
-        objects_found=len(results),
-        detections=results,
-        processing_time=0.15
-    )
-```
-
-#### Learning Resources
-- **FastAPI Documentation**: [FastAPI Docs](https://fastapi.tiangolo.com/)
-- **Our AI Service**: `/ai-service/app.py`
-- **Key Concepts**: Path operations, dependency injection, background tasks
-
----
-
-## 🛠️ DevOps & Deployment Technologies
-
-### Docker 🐳
-**What it is**: Containerization platform that packages applications with all dependencies
-**Think of it as**: Shipping containers for software - works the same everywhere
-
-#### Why We Use Docker
-- **Consistency**: Runs the same on your laptop, server, or cloud
-- **Isolation**: Each service runs independently
-- **Easy Deployment**: Ship the container, not the code
-- **Development**: Everyone gets identical environment
-
-#### How Our Docker Setup Works
+**Development Setup:**
 ```yaml
-# docker-compose.yml - Orchestrates all services
 version: '3.8'
 services:
+  api:
+    build: ./backend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - MONGODB_URI=mongodb://mongodb:27017
+    depends_on:
+      - mongodb
+
   frontend:
     build: ./frontend
     ports:
-      - "3000:80"
-    depends_on:
-      - backend
-  
-  backend:
-    build: ./backend
-    ports:
-      - "5000:5000"
-    environment:
-      - MONGO_URL=mongodb://mongo:27017/eventmonitoring
-    depends_on:
-      - mongo
-  
-  ai-service:
-    build: ./ai-service
-    ports:
-      - "8000:8000"
-    volumes:
-      - ./ai-service/models:/app/models
-  
-  mongo:
+      - "3001:3000"
+
+  mongodb:
     image: mongo:6.0
     ports:
       - "27017:27017"
     volumes:
-      - mongo_data:/data/db
+      - mongodb_data:/data/db
+
+  ai-service:
+    build: ./ai-service
+    ports:
+      - "8000:8000"
 ```
 
-#### Learning Resources
-- **Docker Documentation**: [Docker Docs](https://docs.docker.com/)
-- **Our Docker Files**: `Dockerfile` in each service folder
-- **Key Concepts**: Images, containers, volumes, networks
+## Security Architecture
 
----
+### Authentication & Authorization
 
-### Git & GitHub 📚
-**What it is**: Version control system for tracking code changes
-**Think of it as**: Google Docs version history, but for code
-
-#### Why Version Control is Critical
-- **Track Changes**: See what changed, when, and who changed it
-- **Collaboration**: Multiple developers can work on same project
-- **Backup**: Code is stored safely in multiple places
-- **Branching**: Work on features without breaking main code
-
-#### Basic Git Workflow
-```bash
-# Download the project
-git clone https://github.com/your-team/event-monitoring-mvp.git
-
-# Create a new feature branch
-git checkout -b feature/add-camera-settings
-
-# Make changes, then stage them
-git add .
-
-# Commit with descriptive message
-git commit -m "Add camera resolution settings to UI"
-
-# Push to GitHub
-git push origin feature/add-camera-settings
-
-# Create Pull Request on GitHub for team review
-```
-
-#### Learning Resources
-- **Git Tutorial**: [Git Tutorial](https://git-scm.com/docs/gittutorial)
-- **GitHub Guides**: [GitHub Guides](https://guides.github.com/)
-- **Key Concepts**: Repositories, branches, commits, merges, pull requests
-
----
-
-## 🌐 Additional Important Technologies
-
-### JWT (JSON Web Tokens) 🔐
-**What it is**: Secure way to transmit information between parties
-**Think of it as**: Digital passport that proves who you are
-
-#### How JWT Authentication Works
-1. User logs in with username/password
-2. Server verifies credentials
-3. Server creates JWT token with user info
-4. Client stores token and sends with every request
-5. Server verifies token to authenticate requests
-
-```javascript
-// JWT structure
-{
-  "header": {
-    "alg": "HS256",
-    "typ": "JWT"
-  },
-  "payload": {
-    "userId": "123",
-    "username": "john_doe",
-    "role": "security_guard",
-    "exp": 1640995200  // Expiration time
-  },
-  "signature": "secret-signature-hash"
+**JWT Token Structure:**
+```typescript
+interface JWTPayload {
+  userId: string;
+  companyId: string;
+  role: UserRole;
+  iat: number;
+  exp: number;
 }
 ```
 
----
+**API Key Validation:**
+```typescript
+// Middleware for API key validation
+const validateApiKey = async (req, res, next) => {
+  const apiKey = req.headers['x-api-key'];
+  const company = await Company.findOne({ apiKey });
 
-### WebRTC 📹
-**What it is**: Real-time communication for browsers (video, audio, data)
-**Think of it as**: Video calling technology built into browsers
+  if (!company) {
+    return res.status(403).json({ error: 'Invalid API key' });
+  }
 
-#### Why We'll Use WebRTC
-- **Low Latency**: Minimal delay for live video
-- **Browser Native**: No plugins required
-- **Peer-to-Peer**: Direct connection when possible
-- **Adaptive**: Adjusts quality based on connection
+  req.company = company;
+  next();
+};
+```
 
----
+### Data Security
 
-### Mapbox 🗺️
-**What it is**: Platform for custom maps and location services
-**Think of it as**: Google Maps that you can customize for your needs
+**Encryption:**
+- **At Rest**: MongoDB field-level encryption for sensitive data
+- **In Transit**: TLS 1.3 for all communications
+- **Passwords**: bcrypt with salt rounds
+- **API Keys**: SHA-256 hashed in logs
 
-#### How We Use Maps
-- **Camera Locations**: Show where each camera is positioned
-- **Event Visualization**: Display where events occurred
-- **Coverage Areas**: Show camera viewing ranges
-- **Navigation**: Help security teams navigate to incidents
+**Access Control:**
+- **RBAC**: Role-based permissions per endpoint
+- **Company Isolation**: Automatic company scoping on all queries
+- **Field-Level Security**: Sensitive fields filtered by role
 
----
+## Monitoring and Observability
 
-## 🎯 Technology Integration: How It All Works Together
+### Application Monitoring
 
-### Request Flow Example: User Logs In
-1. **Frontend (React)**: User enters username/password
-2. **Frontend→Backend**: HTTP POST to `/api/auth/login`
-3. **Backend (Express)**: Validates credentials against MongoDB
-4. **Backend→Frontend**: Returns JWT token
-5. **Frontend**: Stores token, redirects to dashboard
-6. **Frontend**: All future requests include JWT token
+**Winston Logging:**
+```typescript
+import winston from 'winston';
 
-### Real-Time Event Flow: AI Detects Person
-1. **Camera**: Sends video stream to AI Service
-2. **AI Service (Python/YOLO)**: Detects person in frame
-3. **AI Service→Backend**: HTTP POST new event data
-4. **Backend**: Saves event to MongoDB
-5. **Backend**: Broadcasts event via Socket.IO
-6. **Frontend**: Receives real-time event, shows alert
-7. **Frontend**: Updates dashboard and event list
+const logger = winston.createLogger({
+  level: 'info',
+  format: winston.format.json(),
+  transports: [
+    new winston.transports.File({ filename: 'error.log', level: 'error' }),
+    new winston.transports.File({ filename: 'combined.log' })
+  ]
+});
+```
 
-### Development Workflow
-1. **Git**: Clone repository to local machine
-2. **Docker**: Start all services with one command
-3. **Development**: Make changes to code
-4. **Testing**: Verify changes work correctly
-5. **Git**: Commit and push changes
-6. **Review**: Team reviews code via pull request
-7. **Deployment**: Merge to main branch, deploy to production
+**Performance Monitoring:**
+- **Response Times**: Middleware to track API response times
+- **Error Rates**: Centralized error tracking and alerting
+- **Resource Usage**: Memory, CPU, and database connection monitoring
 
-## 🚀 Getting Started: Next Steps for New Developers
+### Health Checks
 
-### Prerequisites to Learn
-1. **JavaScript/TypeScript Basics**: Variables, functions, objects, arrays
-2. **HTML/CSS Fundamentals**: Basic web page structure and styling
-3. **Command Line Basics**: Navigate folders, run commands
-4. **Git Basics**: Clone, add, commit, push, pull
+**Service Health Endpoints:**
+```typescript
+// Health check endpoint
+app.get('/health', async (req, res) => {
+  const dbStatus = await checkDatabaseConnection();
+  const servicesStatus = await checkServiceDependencies();
 
-### Recommended Learning Order
-1. **Week 1-2**: JavaScript fundamentals, HTML/CSS basics
-2. **Week 3-4**: React basics, component concepts
-3. **Week 5-6**: TypeScript, API concepts
-4. **Week 7-8**: Node.js, Express basics
-5. **Week 9-10**: Database concepts, MongoDB
-6. **Week 11-12**: Docker, deployment concepts
+  res.json({
+    status: 'ok',
+    timestamp: new Date().toISOString(),
+    services: {
+      database: dbStatus,
+      redis: servicesStatus.redis,
+      ai_service: servicesStatus.ai
+    }
+  });
+});
+```
 
-### Hands-On Practice
-1. **Start Small**: Modify existing components before creating new ones
-2. **Use Browser Dev Tools**: Inspect elements, check console for errors
-3. **Read Our Code**: Every file has detailed comments explaining what it does
-4. **Ask Questions**: Use our team chat for any confusion
-5. **Test Changes**: Always verify your changes work before committing
+## Development Tools and Practices
 
-This technology stack represents the modern standard for full-stack web development with AI integration. Each technology was chosen for its learning value, industry relevance, and project suitability. Take time to understand each piece - they all work together to create our complete security monitoring system!
+### Code Quality
+
+**ESLint Configuration:**
+```json
+{
+  "extends": [
+    "@typescript-eslint/recommended",
+    "prettier"
+  ],
+  "parser": "@typescript-eslint/parser",
+  "rules": {
+    "@typescript-eslint/no-unused-vars": "error",
+    "@typescript-eslint/explicit-function-return-type": "warn"
+  }
+}
+```
+
+### Testing Strategy
+
+**Testing Pyramid:**
+- **Unit Tests**: Jest for component testing (80%)
+- **Integration Tests**: API endpoint testing (15%)
+- **E2E Tests**: Cypress for user workflow testing (5%)
+
+**Test Example:**
+```typescript
+describe('Event Service', () => {
+  it('should create event from report', async () => {
+    const report = await createTestReport();
+    const event = await eventService.createFromReport(report);
+
+    expect(event.reports).toContain(report._id);
+    expect(event.status).toBe('active');
+  });
+});
+```
+
+## Performance Optimization
+
+### Database Optimization
+
+**Indexing Strategy:**
+```javascript
+// Optimized indexes for common queries
+Event.collection.createIndex({ companyId: 1, status: 1, createdAt: -1 });
+Event.collection.createIndex({ companyId: 1, location: '2dsphere' });
+Event.collection.createIndex({ companyId: 1, 'reports.0': 1 });
+```
+
+**Query Optimization:**
+- **Pagination**: Cursor-based pagination for large datasets
+- **Projection**: Only fetch required fields
+- **Aggregation Pipeline**: Efficient data processing
+
+### Caching Strategy
+
+**Redis Implementation:**
+```typescript
+import { createClient } from 'redis';
+
+const redis = createClient();
+
+// Cache event types (frequently accessed)
+app.get('/api/event-types', cache('5m'), async (req, res) => {
+  const types = await EventType.find({ isActive: true });
+  res.json(types);
+});
+```
+
+## Future Technology Considerations
+
+### Potential Upgrades
+
+**API Gateway:**
+- **Kong**: More advanced API gateway features
+- **Express Gateway**: Lighter alternative with good plugin ecosystem
+
+**Database:**
+- **MongoDB Atlas**: Managed cloud database with advanced features
+- **PostgreSQL**: Consider for complex relational data if needed
+
+**Real-time:**
+- **Socket.io Clusters**: For horizontal scaling
+- **Kafka**: Event streaming for large-scale deployments
+
+**Deployment:**
+- **Kubernetes**: Container orchestration for production scaling
+- **Istio**: Service mesh for advanced traffic management
+
+This technology stack provides a solid foundation for the Event Monitoring Platform while maintaining flexibility for future enhancements and scaling requirements.
