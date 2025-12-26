@@ -37,6 +37,7 @@ import cameraRoutes from './routes/cameras';
 import eventRoutes from './routes/events';
 import userRoutes from './routes/users';
 import aiDetectionRoutes from './routes/aiDetections';
+import mobileRoutes from './routes/mobile';
 
 // Load environment variables from .env file
 dotenv.config();
@@ -107,6 +108,7 @@ app.use('/api/cameras', cameraRoutes);      // Camera management routes
 app.use('/api/events', eventRoutes);        // Event management routes
 app.use('/api/users', userRoutes);          // User management routes
 app.use('/api/detections', aiDetectionRoutes); // AI detection management routes
+app.use('/api/mobile', mobileRoutes);            // Mobile app integration routes
 
 /**
  * Socket.IO Real-Time Communication Setup

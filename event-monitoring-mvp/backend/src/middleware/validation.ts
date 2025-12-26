@@ -135,3 +135,64 @@ export const validation = (req: Request, res: Response, next: NextFunction): voi
   }
   next();
 };
+
+// Mobile API: Verify First Responder validation
+export const validateVerifyFR = (req: Request, res: Response, next: NextFunction): void => {
+  const schema = Joi.object({
+    phone: Joi.string().required().messages({
+      'string.empty': 'Phone number is required',
+      'any.required': 'Phone number is required'
+    })
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    res.status(400).json({ success: false, message: error.details[0].message });
+    return;
+  }
+  next();
+};
+
+// Mobile API: Create Report validation
+export const validateCreateReport = (req: Request, res: Response, next: NextFunction): void => {
+  const schema = Joi.object({
+    phone: Joi.string().required().messages({
+      'string.empty': 'Phone number is required',
+      'any.required': 'Phone number is required'
+    }),
+    type: Joi.string().required().messages({
+      'string.empty': 'Event type is required',
+      'any.required': 'Event type is required'
+    }),
+    subType: Joi.string().optional().allow(''),
+    severity: Joi.string().valid('low', 'medium', 'high', 'critical', 'emergency').default('medium'),
+    description: Joi.string().max(1000).optional().allow(''),
+    location: Joi.object({
+      latitude: Joi.number().min(-90).max(90).required().messages({
+        'number.base': 'Latitude must be a number',
+        'number.min': 'Latitude must be between -90 and 90',
+        'number.max': 'Latitude must be between -90 and 90',
+        'any.required': 'Latitude is required'
+      }),
+      longitude: Joi.number().min(-180).max(180).required().messages({
+        'number.base': 'Longitude must be a number',
+        'number.min': 'Longitude must be between -180 and 180',
+        'number.max': 'Longitude must be between -180 and 180',
+        'any.required': 'Longitude is required'
+      })
+    }).required().messages({
+      'any.required': 'Location is required'
+    }),
+    media: Joi.object({
+      images: Joi.array().items(Joi.string().uri()).optional(),
+      videos: Joi.array().items(Joi.string().uri()).optional()
+    }).optional()
+  });
+
+  const { error } = schema.validate(req.body);
+  if (error) {
+    res.status(400).json({ success: false, message: error.details[0].message });
+    return;
+  }
+  next();
+};
