@@ -1,297 +1,224 @@
-# Event Monitoring MVP - Complete Project Overview
+# Event Monitoring Platform - Project Overview
 
-## 📋 What We're Building
+## Vision
+The Event Monitoring and Management Platform is a comprehensive system designed to enhance community safety through intelligent incident detection, reporting, and response coordination. By combining AI-powered camera surveillance, mobile citizen reporting, and professional first responder management, the platform creates a connected ecosystem for proactive incident management.
 
-The Event Monitoring MVP is a **security system** that uses cameras and artificial intelligence to monitor areas and detect important events (like people entering restricted zones). Think of it as a smart security guard that never sleeps!
+## Current Status: MVP Implementation
+The platform is currently in active MVP development with multi-tenant architecture supporting standalone mobile applications for citizen reporting and first responder coordination.
 
-### 🎯 Main Goals
+## Key Features
 
-1. **Monitor Security Cameras** - Connect to multiple security cameras around a facility
-2. **Detect Events** - Use AI to automatically spot people, vehicles, or suspicious activity
-3. **Alert Security Teams** - Instantly notify guards when something important happens
-4. **Track Everything** - Keep a record of all events for investigation and reporting
-5. **Easy Management** - Provide a user-friendly web interface to control everything
+### 🔍 Intelligent Detection
+- AI-powered camera analytics using YOLOv8
+- Real-time object and activity detection
+- Automated event creation from camera feeds
 
-## 🏗️ What We've Already Built
+### 📱 Mobile Integration
+- Citizen reporting app with anonymous submissions
+- First responder app with live location tracking
+- API key-based multi-tenant authentication
 
-### ✅ Completed Features
+### 🏢 Multi-Tenant Architecture
+- Company-based data isolation
+- Flexible subscription plans
+- Scalable user management
 
-#### 1. **User Authentication System**
-- **What it does**: Secure login/logout system so only authorized people can access the system
-- **Why it's important**: Protects sensitive security data from unauthorized access
-- **Technologies used**: JWT (JSON Web Tokens) for secure authentication
+### 📊 Centralized Dashboard
+- Real-time event monitoring
+- Interactive mapping interface
+- Comprehensive analytics and reporting
 
-#### 2. **Interactive Dashboard**
-- **What it does**: Main control center showing live statistics, camera status, and recent events
-- **Features include**:
-  - Real-time camera count and status
-  - Recent security events feed
-  - Quick action buttons
-  - System health indicators
-- **Why it's important**: Gives security operators a quick overview of everything happening
+### 🚨 Response Coordination
+- Automated event assignment
+- Real-time communication via WebSockets
+- Status tracking and resolution workflows
 
-#### 3. **Camera Management System**
-- **What it does**: Add, configure, and monitor security cameras
-- **Features include**:
-  - Add new cameras with RTSP/HTTP stream URLs
-  - View camera status (online/offline)
-  - Configure camera settings
-  - Grid view of all cameras
-- **Why it's important**: Central control for all security cameras in the system
+## Technology Stack
 
-#### 4. **Interactive Map View**
-- **What it does**: Shows camera locations and events on a real map
-- **Features include**:
-  - Interactive map using Mapbox (like Google Maps but for security)
-  - Camera markers showing status (green=online, red=offline)
-  - Event markers showing recent incidents
-  - Click cameras to see details
-- **Why it's important**: Visual representation helps security teams understand spatial relationships
+### Backend
+- **Runtime**: Node.js with Express.js
+- **Language**: TypeScript for type safety
+- **Database**: MongoDB with Mongoose ODM
+- **Authentication**: JWT with multi-method support
+- **Real-time**: WebSocket integration
 
-#### 5. **Event Management**
-- **What it does**: View, filter, and manage security events
-- **Features include**:
-  - List all detected events
-  - Filter by date, camera, event type
-  - Event details with timestamps
-  - Status tracking (pending, acknowledged, resolved)
-- **Why it's important**: Helps security teams investigate and track incidents
+### Frontend
+- **Framework**: React with TypeScript
+- **State Management**: Redux Toolkit
+- **Mapping**: Leaflet for interactive maps
+- **UI Components**: Material-UI component library
 
-#### 6. **User Profile Management**
-- **What it does**: Manage user account information and view activity
-- **Features include**:
-  - Edit profile information
-  - View recent activity history
-  - Performance statistics
-  - Account security settings
-- **Why it's important**: Personalized experience and activity tracking
+### AI Service
+- **Runtime**: Python with FastAPI
+- **ML Framework**: PyTorch with YOLOv8
+- **Computer Vision**: OpenCV for image processing
 
-#### 7. **System Settings**
-- **What it does**: Configure system preferences and behavior
-- **Features include**:
-  - Notification preferences (email, SMS, push notifications)
-  - Display settings (dark mode, language)
-  - Audio configuration
-  - Security settings (session timeout, 2FA)
-- **Why it's important**: Customizable system behavior for different users
+### Infrastructure
+- **Containerization**: Docker for all services
+- **Orchestration**: Docker Compose for development
+- **Reverse Proxy**: Nginx for production deployment
+- **Database**: MongoDB with replica sets
 
-#### 8. **Backend API System**
-- **What it does**: Server that handles all data and business logic
-- **Features include**:
-  - RESTful API endpoints for all operations
-  - Database integration with MongoDB
-  - Real-time communication via WebSockets
-  - User authentication and authorization
-- **Why it's important**: The "brain" of the system that coordinates everything
+## Architecture Overview
 
-#### 9. **AI Service Foundation**
-- **What it does**: Python service for AI-powered video analysis
-- **Current status**: Basic structure in place, ready for AI model integration
-- **Why it's important**: This is where the "smart" detection happens
+The platform follows a microservices architecture with clear separation of concerns:
 
-## 🚧 What We're Currently Working On
+```
+┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
+│   Mobile Apps   │    │  Web Dashboard  │    │   AI Cameras    │
+│                 │    │                 │    │                 │
+│ • Citizen App   │    │ • React SPA     │    │ • YOLOv8       │
+│ • Responder App │    │ • Real-time     │    │ • RTSP Streams  │
+└─────────┬───────┘    └─────────┬───────┘    └─────────┬───────┘
+          │                      │                      │
+          └──────────────────────┼──────────────────────┘
+                                 │
+                    ┌─────────────────┐
+                    │   API Gateway   │
+                    │                 │
+                    │ • Authentication│
+                    │ • Rate Limiting │
+                    │ • Request Proxy │
+                    └─────────┬───────┘
+                              │
+                    ┌─────────────────┐
+                    │  Core Services  │
+                    │                 │
+                    │ • Event Mgmt    │
+                    │ • User Mgmt     │
+                    │ • Report Mgmt   │
+                    └─────────┬───────┘
+                              │
+                    ┌─────────────────┐
+                    │    Database     │
+                    │                 │
+                    │ • MongoDB       │
+                    │ • Multi-tenant  │
+                    │ • Geo-spatial   │
+                    └─────────────────┘
+```
 
-### 🔄 In Development
+## Development Roadmap
 
-#### 1. **AI Object Detection**
-- **Goal**: Automatically detect people, vehicles, and objects in camera feeds
-- **Technology**: YOLOv8 (You Only Look Once) - a state-of-the-art object detection AI model
-- **Status**: AI service structure completed, model integration in progress
+### Phase 1: MVP Core (Current)
+- ✅ Multi-tenant company management
+- ✅ API key authentication system
+- ✅ Mobile report submission
+- ✅ Event aggregation from reports
+- ✅ Web dashboard with real-time updates
+- ✅ AI camera integration
+- 🔄 First responder location tracking
 
-#### 2. **Real-time Video Processing**
-- **Goal**: Process live camera streams and generate events when something is detected
-- **Technology**: OpenCV for video processing, WebRTC for streaming
-- **Status**: Video processing framework in place, real-time analysis in development
+### Phase 2: Enhanced Features
+- 📋 Advanced analytics and reporting
+- 📋 Mobile app development (React Native)
+- 📋 Push notification system
+- 📋 Offline data synchronization
+- 📋 Custom event type configuration
+- 📋 Integration APIs for third-party systems
 
-#### 3. **Event Generation System**
-- **Goal**: Automatically create events when AI detects something important
-- **Features**:
-  - Configurable detection zones
-  - Severity classification (low, medium, high, critical)
-  - Smart filtering to avoid false alarms
-- **Status**: Event structure completed, AI integration pending
+### Phase 3: Enterprise Scale
+- 📋 Multi-region deployment
+- 📋 Advanced AI model training
+- 📋 Machine learning pipeline
+- 📋 Advanced user permission system
+- 📋 Audit logging and compliance
+- 📋 Performance monitoring and alerting
 
-## 🔮 Future Implementation Plans
+## Team Structure
 
-### 📅 Phase 1 (Next 2-4 weeks)
-1. **Complete AI Integration**
-   - Integrate YOLOv8 model for object detection
-   - Implement real-time video stream processing
-   - Create automatic event generation
+### Development Teams
+- **Backend Team**: API development, database design, authentication
+- **Frontend Team**: Web dashboard, user experience, responsive design
+- **AI/ML Team**: Computer vision, model training, detection algorithms
+- **Mobile Team**: React Native apps, offline functionality, device integration
+- **DevOps Team**: Infrastructure, deployment, monitoring, security
 
-2. **Enhanced Alerts**
-   - Email notifications for critical events
-   - SMS alerts for emergency situations
-   - Push notifications to mobile devices
+### Key Roles
+- **Technical Lead**: Overall architecture and technical direction
+- **Product Manager**: Feature prioritization and stakeholder management
+- **UX/UI Designer**: User experience design and interface consistency
+- **QA Lead**: Testing strategy and quality assurance
+- **DevOps Engineer**: Infrastructure and deployment automation
 
-3. **Live Video Streaming**
-   - Real-time video display in the web interface
-   - Multiple camera view support
-   - Video recording for events
+## Quality Assurance
 
-### 📅 Phase 2 (1-2 months)
-1. **Advanced AI Features**
-   - Face recognition for authorized personnel
-   - Behavior analysis (loitering, running, fighting)
-   - Vehicle license plate recognition
-
-2. **Mobile Application**
-   - Native mobile app for security guards
-   - Push notifications for events
-   - Quick response actions
-
-3. **Advanced Analytics**
-   - Event pattern analysis
-   - Predictive security insights
-   - Comprehensive reporting dashboard
-
-### 📅 Phase 3 (2-3 months)
-1. **Enterprise Features**
-   - Multi-tenant support (multiple organizations)
-   - Advanced role-based permissions
-   - Integration with existing security systems
-
-2. **Machine Learning Improvements**
-   - Custom model training for specific environments
-   - Adaptive learning from user feedback
-   - Reduced false positive rates
-
-## 🎯 Target Users
-
-### Primary Users
-1. **Security Guards/Operators**
-   - Monitor multiple cameras simultaneously
-   - Respond to real-time alerts
-   - Investigate security incidents
-
-2. **Security Managers**
-   - Oversee system operations
-   - Generate reports for management
-   - Configure system settings and policies
-
-3. **Facility Managers**
-   - Monitor overall facility security
-   - Review incident reports
-   - Plan security improvements
-
-### Use Cases
-1. **Corporate Buildings**: Monitor entrances, parking lots, and restricted areas
-2. **Retail Stores**: Detect shoplifting, monitor customer areas
-3. **Warehouses**: Secure inventory, monitor loading docks
-4. **Schools/Universities**: Campus security, emergency response
-5. **Residential Complexes**: Monitor common areas, parking, entrances
-
-## 🏛️ System Architecture Overview
-
-### Frontend (Web Interface)
-- **Technology**: React.js with TypeScript
-- **Purpose**: User interface that security operators interact with
-- **Features**: Dashboard, camera views, event management, settings
-
-### Backend (Server/API)
-- **Technology**: Node.js with Express
-- **Purpose**: Handles data, user authentication, and coordinates between components
-- **Features**: User management, camera data, event storage, real-time communication
-
-### AI Service (Smart Detection)
-- **Technology**: Python with YOLOv8 and OpenCV
-- **Purpose**: Analyzes video streams and detects objects/events
-- **Features**: Object detection, motion analysis, event generation
-
-### Database (Data Storage)
-- **Technology**: MongoDB
-- **Purpose**: Stores all system data
-- **Data**: Users, cameras, events, settings, logs
-
-### Communication Flow
-1. **Cameras** send video streams to **AI Service**
-2. **AI Service** analyzes video and detects events
-3. **AI Service** sends events to **Backend**
-4. **Backend** stores events in **Database**
-5. **Backend** sends real-time alerts to **Frontend**
-6. **Frontend** displays events to security operators
-
-## 🚀 Why This Project Matters
-
-### Business Value
-- **Reduces Security Costs**: Fewer human guards needed for monitoring
-- **Improves Response Time**: Instant alerts vs. manual observation
-- **24/7 Operation**: Never sleeps, never gets distracted
-- **Evidence Collection**: Automatic recording of security incidents
-- **Scalability**: Can monitor hundreds of cameras with minimal staff
-
-### Technical Learning Value
-- **Full-Stack Development**: Frontend, backend, database, AI
-- **Modern Technologies**: Latest tools and frameworks
-- **Real-World Application**: Solves actual business problems
-- **Microservices Architecture**: Industry-standard system design
-- **AI/ML Integration**: Cutting-edge technology application
-
-## 🎓 Learning Opportunities for the Team
-
-### Frontend Development
-- **React.js**: Modern web application framework
-- **TypeScript**: Type-safe JavaScript for better code quality
-- **Material-UI**: Professional component library
-- **State Management**: Redux for complex application state
-- **Real-time Updates**: WebSocket integration
-
-### Backend Development
-- **Node.js/Express**: Server-side JavaScript development
-- **API Design**: RESTful services and best practices
-- **Database Design**: MongoDB schema design and optimization
-- **Authentication**: Secure user management with JWT
-- **Real-time Communication**: WebSocket implementation
-
-### AI/Machine Learning
-- **Computer Vision**: Object detection and image processing
-- **Neural Networks**: Understanding how AI models work
-- **Python Programming**: AI/ML development ecosystem
-- **OpenCV**: Industry-standard computer vision library
-- **Model Integration**: Connecting AI models to real applications
-
-### DevOps and Deployment
-- **Docker**: Containerization for consistent deployment
-- **Environment Management**: Configuration and secrets
-- **Logging and Monitoring**: Application observability
-- **Testing**: Unit tests, integration tests, and quality assurance
-
-## 🎯 Success Metrics
-
-### Technical Metrics
-- **Detection Accuracy**: >95% accuracy for person detection
-- **Response Time**: <2 seconds from event to alert
-- **System Uptime**: >99.9% availability
-- **Concurrent Users**: Support for 50+ simultaneous users
-- **Video Processing**: Handle 20+ camera streams simultaneously
-
-### User Experience Metrics
-- **Login Time**: <3 seconds to authenticate
-- **Page Load Speed**: <2 seconds for all pages
-- **Mobile Responsiveness**: Works on all device sizes
-- **User Satisfaction**: >4.5/5 rating from security operators
-
-## 🛠️ Development Best Practices We're Following
+### Testing Strategy
+- **Unit Tests**: Individual component testing
+- **Integration Tests**: API endpoint and service interaction testing
+- **End-to-End Tests**: Complete user workflow testing
+- **Performance Tests**: Load testing and performance benchmarking
+- **Security Tests**: Penetration testing and vulnerability assessment
 
 ### Code Quality
-- **TypeScript**: Type safety across frontend and backend
-- **Code Comments**: Detailed documentation for learning
-- **Consistent Naming**: Clear, descriptive variable and function names
-- **Error Handling**: Comprehensive error management
-- **Testing**: Unit and integration tests for reliability
+- **TypeScript**: Strict type checking enabled
+- **ESLint**: Code style and quality enforcement
+- **Pre-commit Hooks**: Automated testing and linting
+- **Code Reviews**: Mandatory peer review process
+- **Documentation**: Comprehensive API and code documentation
 
-### Security
-- **Input Validation**: All user inputs are validated
-- **Authentication**: Secure login with JWT tokens
-- **Authorization**: Role-based access control
-- **Data Encryption**: Passwords hashed with bcrypt
-- **HTTPS**: Secure communication in production
+## Deployment and Operations
 
-### Performance
-- **Optimized Images**: Compressed assets for faster loading
-- **Code Splitting**: Load only necessary code for each page
-- **Database Indexing**: Fast query performance
-- **Caching**: Reduced server load and faster responses
-- **Lazy Loading**: Load content only when needed
+### Development Environment
+- Local Docker Compose setup
+- Hot reload for all services
+- Automated testing on commit
+- Development database with sample data
 
-This project represents a complete, production-ready security system that demonstrates modern software development practices and cutting-edge AI technology. It's an excellent learning platform that covers the full spectrum of software development skills!
+### Staging Environment
+- Full infrastructure replication
+- Automated deployment from main branch
+- Integration testing environment
+- Performance testing sandbox
+
+### Production Environment
+- Container orchestration (Kubernetes)
+- Multi-region deployment capability
+- Automated scaling and load balancing
+- Comprehensive monitoring and alerting
+- Backup and disaster recovery
+
+## Security Considerations
+
+### Data Protection
+- End-to-end encryption for sensitive data
+- Multi-tenant data isolation
+- GDPR and privacy regulation compliance
+- Secure API key management
+
+### Access Control
+- Role-based access control (RBAC)
+- Multi-factor authentication support
+- Session management and timeout
+- Audit logging for all access
+
+### Network Security
+- HTTPS-only communication
+- API rate limiting and throttling
+- CORS policy enforcement
+- Web application firewall (WAF)
+
+## Success Metrics
+
+### Technical Metrics
+- **Uptime**: 99.9% service availability
+- **Response Time**: <200ms API response time
+- **Throughput**: 1000+ concurrent users
+- **Accuracy**: >95% AI detection accuracy
+
+### Business Metrics
+- **User Adoption**: Number of active companies and users
+- **Incident Response**: Average time to incident resolution
+- **Report Volume**: Number of citizen reports processed
+- **System Utilization**: Camera uptime and detection coverage
+
+## Getting Started
+
+New team members should:
+1. Review this project overview document
+2. Read the [team coordination protocol](../team-coordination-protocol.md)
+3. Follow the [beginner guide](./06-BEGINNER-GUIDE.md)
+4. Set up their development environment
+5. Join relevant team communication channels
+
+For detailed technical documentation, see the [architecture documentation](../event-monitoring-mvp-architecture/) directory.

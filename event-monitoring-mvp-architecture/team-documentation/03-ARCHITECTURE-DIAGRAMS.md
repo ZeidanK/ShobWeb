@@ -1,591 +1,524 @@
-# System Architecture & Design Patterns
+# Architecture Diagrams
 
-## 🏗️ Architecture Overview
+This document contains the key architectural diagrams for the Event Monitoring and Management Platform, illustrating the system design, data flows, and component interactions.
 
-Our Event Monitoring MVP follows a **microservices architecture** with clear separation of concerns. This design makes the system scalable, maintainable, and allows different teams to work on different parts independently.
+## Table of Contents
+1. [System Context Diagram](#system-context-diagram)
+2. [Container Architecture](#container-architecture)
+3. [Component Architecture](#component-architecture)
+4. [Data Flow Diagrams](#data-flow-diagrams)
+5. [Multi-Tenant Architecture](#multi-tenant-architecture)
+6. [Mobile Integration Flow](#mobile-integration-flow)
+7. [Real-time Communication](#real-time-communication)
 
-## 🎯 Architectural Principles
+## System Context Diagram
 
-### 1. **Separation of Concerns**
-Each service has one primary responsibility:
-- **Frontend**: User interface and user experience
-- **Backend**: Business logic and data management  
-- **AI Service**: Computer vision and event detection
-- **Database**: Data persistence and retrieval
+```mermaid
+graph TB
+    subgraph "External Systems"
+        Citizen[Citizen Mobile App]
+        Responder[First Responder App]
+        Cameras[IP Cameras]
+        VMS[Video Management System]
+    end
 
-### 2. **Loose Coupling**
-Services communicate through well-defined APIs, not direct code dependencies:
-```
-Frontend ←→ REST API ←→ Backend ←→ MongoDB
-                ↕
-         AI Service ←→ WebSocket
-```
+    subgraph "Event Monitoring Platform"
+        API[API Gateway]
+        Auth[Authentication Service]
+        Events[Event Management]
+        Reports[Report Processing]
+        Users[User Management]
+        Companies[Company Management]
+        AI[AI Detection Service]
+        Dashboard[Web Dashboard]
+    end
 
-### 3. **High Cohesion**
-Related functionality is grouped together within each service.
+    subgraph "Infrastructure"
+        MongoDB[(MongoDB)]
+        Redis[(Redis Cache)]
+        FileStore[(File Storage)]
+    end
 
-### 4. **Scalability**
-Each service can be scaled independently based on demand.
+    Citizen --> API
+    Responder --> API
+    Cameras --> AI
+    VMS --> API
 
-## 🏛️ Detailed Architecture Diagram
+    API --> Auth
+    API --> Events
+    API --> Reports
+    API --> Users
+    API --> Companies
 
-```
-┌─────────────────────────────────────────────────────────────────────┐
-│                           USER LAYER                                │
-├─────────────────────────────────────────────────────────────────────┤
-│  👤 Security Guards    👤 Managers    👤 Administrators             │
-│           │                 │                 │                     │
-│           └─────────────────┼─────────────────┘                     │
-│                             │                                       │
-└─────────────────────────────┼─────────────────────────────────────────┘
-                              │ HTTPS
-┌─────────────────────────────▼─────────────────────────────────────────┐
-│                      PRESENTATION LAYER                              │
-├─────────────────────────────────────────────────────────────────────┤
-│                    React Frontend (Port 3000)                      │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
-│  │  Dashboard  │ │   Events    │ │   Cameras   │ │   MapView   │    │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
-│  │  LiveView   │ │   Profile   │ │  Settings   │ │    Login    │    │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │
-│                             │                                       │
-│  State Management: Redux    │ Real-time: Socket.IO                  │
-│  HTTP Clients: React Query │ UI Components: Material-UI              │
-└─────────────────────────────┼─────────────────────────────────────────┘
-                              │ REST API + WebSocket
-┌─────────────────────────────▼─────────────────────────────────────────┐
-│                        APPLICATION LAYER                             │
-├─────────────────────────────────────────────────────────────────────┤
-│                   Node.js Backend (Port 5000)                      │
-│                                                                     │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
-│  │    Auth     │ │   Camera    │ │    Event    │ │    User     │    │
-│  │ Controller  │ │ Controller  │ │ Controller  │ │ Controller  │    │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │
-│         │               │               │               │           │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
-│  │ Auth Routes │ │Camera Routes│ │Event Routes │ │ User Routes │    │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │
-│                             │                                       │
-│  Middleware: JWT Auth       │ Real-time: Socket.IO Server           │
-│  Validation & Error Handling│ API Framework: Express.js             │
-└─────────────────────────────┼─────────────────────────────────────────┘
-                              │ HTTP Requests
-                    ┌─────────┼─────────┐
-                    │         │         │
-                    ▼         │         ▼
-┌─────────────────────────────┐│ ┌─────────────────────────────────────────┐
-│      AI SERVICE             ││ │            DATA LAYER                   │
-│   Python (Port 8000)       ││ │                                         │
-│                             ││ │         MongoDB (Port 27017)            │
-│  ┌─────────────────────┐    ││ │                                         │
-│  │   YOLOv8 Model      │    ││ │  ┌─────────────┐ ┌─────────────────┐    │
-│  │  Object Detection   │    ││ │  │    Users    │ │     Cameras     │    │
-│  └─────────────────────┘    ││ │  │ Collection  │ │   Collection    │    │
-│  ┌─────────────────────┐    ││ │  └─────────────┘ └─────────────────┘    │
-│  │   OpenCV Video      │    ││ │  ┌─────────────┐ ┌─────────────────┐    │
-│  │    Processing       │    ││ │  │   Events    │ │     Sessions    │    │
-│  └─────────────────────┘    ││ │  │ Collection  │ │   Collection    │    │
-│  ┌─────────────────────┐    ││ │  └─────────────┘ └─────────────────┘    │
-│  │   FastAPI Server    │    ││ │                                         │
-│  │   REST Endpoints    │    ││ │  Indexes: User email, Camera location   │
-│  └─────────────────────┘    ││ │  Sharding: Ready for horizontal scale   │
-└─────────────────────────────┘│ └─────────────────────────────────────────┘
-                              │
-┌─────────────────────────────▼─────────────────────────────────────────┐
-│                      INFRASTRUCTURE LAYER                            │
-├─────────────────────────────────────────────────────────────────────┤
-│                         Docker Containers                           │
-│                                                                     │
-│  ┌─────────────┐ ┌─────────────┐ ┌─────────────┐ ┌─────────────┐    │
-│  │  frontend   │ │   backend   │ │ ai-service  │ │    mongo    │    │
-│  │ container   │ │  container  │ │  container  │ │  container  │    │
-│  └─────────────┘ └─────────────┘ └─────────────┘ └─────────────┘    │
-│                                                                     │
-│  Network: event-monitoring-network                                  │
-│  Volumes: mongo_data, ai_models                                     │
-│  Environment: .env files for configuration                          │
-└─────────────────────────────────────────────────────────────────────┘
-                              │
-┌─────────────────────────────▼─────────────────────────────────────────┐
-│                        EXTERNAL LAYER                               │
-├─────────────────────────────────────────────────────────────────────┤
-│                                                                     │
-│  📹 RTSP Cameras  🌐 Mapbox API  📧 Email Service  📱 SMS Service    │
-│                                                                     │
-└─────────────────────────────────────────────────────────────────────┘
+    Events --> MongoDB
+    Reports --> MongoDB
+    Users --> MongoDB
+    Companies --> MongoDB
+
+    AI --> Events
+    Dashboard --> API
+
+    Events --> Redis
+    Reports --> FileStore
 ```
 
-## 🔄 Data Flow Patterns
+## Container Architecture
 
-### 1. **User Authentication Flow**
-```
-User Input → Frontend → Backend → MongoDB → JWT → Frontend → Local Storage
-```
+```mermaid
+graph TB
+    subgraph "Client Layer"
+        Web[Web Browser<br/>React SPA]
+        Mobile[Citizen/Responder<br/>Mobile Apps]
+    end
 
-**Detailed Steps:**
-1. User enters credentials in Login component
-2. Frontend sends POST request to `/api/auth/login`
-3. Backend validates credentials against MongoDB users collection
-4. Backend generates JWT token with user info
-5. Frontend receives token and stores in localStorage
-6. Frontend redirects to Dashboard
-7. All subsequent requests include JWT in Authorization header
+    subgraph "API Gateway Layer"
+        Gateway[API Gateway<br/>Express.js]
+        Auth[Auth Middleware<br/>JWT/API Keys]
+        RateLimit[Rate Limiting<br/>Redis]
+        CORS[CORS Handling]
+    end
 
-### 2. **Real-Time Event Detection Flow**
-```
-Camera Stream → AI Service → Backend → MongoDB → Socket.IO → Frontend
-```
+    subgraph "Service Layer"
+        EventSvc[Event Service<br/>Event Mgmt/Aggregation]
+        ReportSvc[Report Service<br/>Submission/Validation]
+        UserSvc[User Service<br/>Multi-tenant Users]
+        CompanySvc[Company Service<br/>Tenant Management]
+        AISvc[AI Service<br/>Detection Processing]
+    end
 
-**Detailed Steps:**
-1. Camera sends RTSP stream to AI Service
-2. AI Service processes frame with YOLOv8
-3. Detection found → AI Service sends HTTP POST to Backend
-4. Backend validates and stores event in MongoDB
-5. Backend broadcasts event via Socket.IO to all connected clients
-6. Frontend receives real-time event and updates UI
-7. User sees instant notification and updated event list
+    subgraph "Data Layer"
+        MongoDB[(MongoDB<br/>Primary Database)]
+        Redis[(Redis<br/>Cache/Session Store)]
+        S3[(Object Storage<br/>Files/Media)]
+    end
 
-### 3. **Camera Management Flow**
-```
-User Action → Frontend → Backend → MongoDB → Socket.IO → All Clients
-```
+    Web --> Gateway
+    Mobile --> Gateway
 
-**Detailed Steps:**
-1. User adds/modifies camera in Camera component
-2. Frontend sends API request to backend
-3. Backend validates and updates camera in MongoDB
-4. Backend broadcasts camera status change via Socket.IO
-5. All connected clients update their camera displays
-6. Map view updates with new camera location
+    Gateway --> Auth
+    Gateway --> RateLimit
+    Gateway --> CORS
 
-## 🏗️ Design Patterns Used
+    Auth --> EventSvc
+    Auth --> ReportSvc
+    Auth --> UserSvc
+    Auth --> CompanySvc
 
-### 1. **Model-View-Controller (MVC) - Backend**
+    EventSvc --> AISvc
 
-#### **Models** (`/backend/src/models/`)
-Define data structure and business rules:
-```javascript
-// User.ts - Defines user data structure
-export interface IUser {
-  _id: string;
-  username: string;
-  email: string;
-  passwordHash: string;
-  role: UserRole;
-  profile: UserProfile;
-  createdAt: Date;
-  lastLoginAt?: Date;
-}
+    EventSvc --> MongoDB
+    ReportSvc --> MongoDB
+    UserSvc --> MongoDB
+    CompanySvc --> MongoDB
 
-export const UserSchema = new mongoose.Schema({
-  username: { type: String, required: true, unique: true },
-  email: { type: String, required: true, unique: true },
-  passwordHash: { type: String, required: true },
-  role: { type: String, enum: ['admin', 'manager', 'guard'], default: 'guard' },
-  // ... more fields
-});
+    EventSvc --> Redis
+    ReportSvc --> S3
 ```
 
-#### **Views** (API Responses)
-Controllers format data for frontend consumption:
-```javascript
-// Clean user data for frontend (no password!)
-const userResponse = {
-  id: user._id,
-  username: user.username,
-  email: user.email,
-  role: user.role,
-  profile: user.profile
-};
+## Component Architecture
+
+```mermaid
+graph TB
+    subgraph "Event Management Component"
+        EventController[Event Controller<br/>REST Endpoints]
+        EventService[Event Service<br/>Business Logic]
+        EventModel[Event Model<br/>Mongoose Schema]
+        EventValidation[Event Validation<br/>Joi Schemas]
+    end
+
+    subgraph "Report Processing Component"
+        ReportController[Report Controller<br/>REST Endpoints]
+        ReportService[Report Service<br/>Business Logic]
+        ReportModel[Report Model<br/>Mongoose Schema]
+        ReportValidation[Report Validation<br/>Joi Schemas]
+    end
+
+    subgraph "Authentication Component"
+        AuthController[Auth Controller<br/>Login/Register]
+        AuthService[Auth Service<br/>JWT/API Keys]
+        AuthMiddleware[Auth Middleware<br/>Request Validation]
+        SessionStore[Session Store<br/>Redis]
+    end
+
+    subgraph "Real-time Component"
+        WebSocketServer[WebSocket Server<br/>Socket.io]
+        EventEmitter[Event Emitter<br/>Real-time Updates]
+        NotificationSvc[Notification Service<br/>Push Messages]
+    end
+
+    EventController --> EventService
+    EventService --> EventModel
+    EventService --> EventValidation
+
+    ReportController --> ReportService
+    ReportService --> ReportModel
+    ReportService --> ReportValidation
+
+    AuthController --> AuthService
+    AuthService --> AuthMiddleware
+    AuthService --> SessionStore
+
+    WebSocketServer --> EventEmitter
+    EventEmitter --> NotificationSvc
+
+    EventService -.-> EventEmitter
+    ReportService -.-> EventEmitter
 ```
 
-#### **Controllers** (`/backend/src/controllers/`)
-Handle business logic and coordinate between models and views:
-```javascript
-// userController.ts
-export const getCurrentUser = async (req: AuthenticatedRequest, res: Response) => {
-  try {
-    const user = await User.findById(req.userId).select('-passwordHash');
-    if (!user) {
-      return res.status(404).json({ error: 'User not found' });
+## Data Flow Diagrams
+
+### Event Creation Flow
+
+```mermaid
+sequenceDiagram
+    participant Citizen as Citizen App
+    participant API as API Gateway
+    participant ReportSvc as Report Service
+    participant EventSvc as Event Service
+    participant DB as MongoDB
+    participant WS as WebSocket
+
+    Citizen->>API: POST /api/mobile/reports
+    API->>API: Validate API Key
+    API->>ReportSvc: Create Report
+    ReportSvc->>DB: Save Report
+    ReportSvc->>EventSvc: Check Auto-Creation Rules
+    EventSvc->>DB: Create Event (if needed)
+    EventSvc->>DB: Link Report to Event
+    EventSvc->>WS: Broadcast Event Update
+    WS->>Dashboard: Real-time Update
+    API->>Citizen: Report Created Response
+```
+
+### Multi-Tenant Data Isolation
+
+```mermaid
+graph TD
+    subgraph "Company A (API Key: abc123)"
+        A_Users[(Users<br/>companyId: A)]
+        A_Events[(Events<br/>companyId: A)]
+        A_Reports[(Reports<br/>companyId: A)]
+        A_Cameras[(Cameras<br/>companyId: A)]
+    end
+
+    subgraph "Company B (API Key: def456)"
+        B_Users[(Users<br/>companyId: B)]
+        B_Events[(Events<br/>companyId: B)]
+        B_Reports[(Reports<br/>companyId: B)]
+        B_Cameras[(Cameras<br/>companyId: B)]
+    end
+
+    subgraph "Shared/Global Data"
+        EventTypes[(Event Types<br/>companyId: null)]
+        GlobalSettings[(Global Settings)]
+    end
+
+    API[API Gateway] --> A_Users
+    API --> A_Events
+    API --> A_Reports
+    API --> A_Cameras
+
+    API --> B_Users
+    API --> B_Events
+    API --> B_Reports
+    API --> B_Cameras
+
+    API --> EventTypes
+    API --> GlobalSettings
+```
+
+## Multi-Tenant Architecture
+
+```mermaid
+graph TB
+    subgraph "Tenant Isolation Layers"
+        APIKey[API Key Validation<br/>X-API-Key Header]
+        CompanyCtx[Company Context<br/>Request.company]
+        DataFilter[Data Filtering<br/>companyId: {$eq: ctx.companyId}]
+        Permission[Permission Check<br/>Role + Company Scope]
+    end
+
+    subgraph "Database Collections"
+        Companies[(Companies)]
+        Users[(Users<br/>companyId indexed)]
+        Events[(Events<br/>companyId indexed)]
+        Reports[(Reports<br/>companyId indexed)]
+        Cameras[(Cameras<br/>companyId indexed)]
+        EventTypes[(Event Types<br/>companyId nullable)]
+    end
+
+    APIKey --> CompanyCtx
+    CompanyCtx --> DataFilter
+    CompanyCtx --> Permission
+
+    DataFilter --> Users
+    DataFilter --> Events
+    DataFilter --> Reports
+    DataFilter --> Cameras
+
+    Permission --> Companies
+    Permission --> EventTypes
+```
+
+## Mobile Integration Flow
+
+```mermaid
+sequenceDiagram
+    participant Mobile as Mobile App
+    participant API as API Gateway
+    participant Auth as Auth Service
+    participant ReportSvc as Report Service
+    participant EventSvc as Event Service
+    participant DB as Database
+
+    Mobile->>API: Request with X-API-Key
+    API->>Auth: Validate API Key
+    Auth->>DB: Lookup Company
+    Auth->>API: Company Context
+
+    Mobile->>API: POST /api/mobile/reports
+    API->>ReportSvc: Process Report
+    ReportSvc->>DB: Validate Event Type
+    ReportSvc->>DB: Save Report
+    ReportSvc->>EventSvc: Check Auto-Creation
+    EventSvc->>DB: Create/Link Event
+    EventSvc->>API: Success Response
+    API->>Mobile: Report ID + Event Status
+```
+
+## Real-time Communication
+
+```mermaid
+graph TD
+    subgraph "WebSocket Architecture"
+        Client[Web Dashboard<br/>Socket.io Client]
+        Gateway[API Gateway<br/>Socket.io Server]
+        Redis[Redis Adapter<br/>Cluster Support]
+        EventBus[Event Bus<br/>Internal Events]
+    end
+
+    subgraph "Event Types"
+        EventCreated[EVENT_CREATED<br/>New incident]
+        EventUpdated[EVENT_UPDATED<br/>Status/location change]
+        ReportSubmitted[REPORT_SUBMITTED<br/>New report]
+        LocationUpdate[LOCATION_UPDATE<br/>Responder tracking]
+        Notification[NOTIFICATION<br/>System alerts]
+    end
+
+    subgraph "Broadcast Groups"
+        CompanyRoom[Company Room<br/>company_{id}]
+        UserRoom[User Room<br/>user_{id}]
+        GlobalRoom[Global Room<br/>system]
+    end
+
+    Client --> Gateway
+    Gateway --> Redis
+    Gateway --> EventBus
+
+    EventBus --> EventCreated
+    EventBus --> EventUpdated
+    EventBus --> ReportSubmitted
+    EventBus --> LocationUpdate
+    EventBus --> Notification
+
+    EventCreated --> CompanyRoom
+    EventUpdated --> CompanyRoom
+    ReportSubmitted --> CompanyRoom
+    LocationUpdate --> UserRoom
+    Notification --> GlobalRoom
+```
+
+## Database Schema Relationships
+
+```mermaid
+erDiagram
+    Company ||--o{ User : has
+    Company ||--o{ Event : owns
+    Company ||--o{ Report : owns
+    Company ||--o{ Camera : owns
+    Company ||--o{ EventType : "may have custom"
+
+    EventType ||--o{ Event : categorizes
+    EventType ||--o{ Report : categorizes
+
+    Event ||--o{ Report : "aggregates"
+    Event }o--o{ User : "assigned to"
+
+    User ||--o{ Report : submits
+    User ||--o{ Event : "may create"
+
+    Camera ||--o{ Report : generates
+
+    Event {
+        ObjectId _id
+        ObjectId companyId
+        ObjectId eventTypeId
+        string title
+        string status
+        string priority
+        Point location
+        ObjectIdArray reports
+        ObjectId assignedTo
+        Date createdAt
     }
-    res.json(user);
-  } catch (error) {
-    res.status(500).json({ error: 'Server error' });
-  }
-};
-```
 
-### 2. **Component-Based Architecture - Frontend**
-
-#### **Container Components** (Smart Components)
-Manage state and data:
-```javascript
-// Dashboard.tsx - Container component
-function Dashboard() {
-  const { data: cameras } = useQuery(['cameras'], fetchCameras);
-  const { data: events } = useQuery(['events'], fetchRecentEvents);
-  const dispatch = useDispatch();
-  
-  return (
-    <Layout>
-      <DashboardStats cameras={cameras} />
-      <RecentEvents events={events} />
-      <QuickActions onRefresh={() => dispatch(refreshData())} />
-    </Layout>
-  );
-}
-```
-
-#### **Presentation Components** (Dumb Components)
-Just display data:
-```javascript
-// DashboardStats.tsx - Presentation component
-interface DashboardStatsProps {
-  cameras: Camera[];
-}
-
-function DashboardStats({ cameras }: DashboardStatsProps) {
-  const onlineCount = cameras.filter(c => c.status === 'online').length;
-  
-  return (
-    <Grid container spacing={3}>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatCard title="Total Cameras" value={cameras.length} />
-      </Grid>
-      <Grid item xs={12} sm={6} md={3}>
-        <StatCard title="Online" value={onlineCount} color="success" />
-      </Grid>
-    </Grid>
-  );
-}
-```
-
-### 3. **Repository Pattern - Data Access**
-
-#### **Database Layer Abstraction**
-```javascript
-// database.ts - Repository pattern
-export class UserRepository {
-  async findByEmail(email: string): Promise<IUser | null> {
-    return User.findOne({ email }).exec();
-  }
-  
-  async create(userData: CreateUserData): Promise<IUser> {
-    const user = new User(userData);
-    return user.save();
-  }
-  
-  async updateLastLogin(userId: string): Promise<void> {
-    await User.findByIdAndUpdate(userId, { lastLoginAt: new Date() });
-  }
-}
-
-// Usage in controller
-const userRepo = new UserRepository();
-const user = await userRepo.findByEmail(email);
-```
-
-### 4. **Observer Pattern - Real-Time Updates**
-
-#### **Socket.IO Event System**
-```javascript
-// Backend - Event broadcasting
-class EventNotificationService {
-  private io: SocketIOServer;
-  
-  broadcastNewEvent(event: IEvent) {
-    this.io.emit('new-event', {
-      id: event._id,
-      type: event.type,
-      cameraId: event.cameraId,
-      timestamp: event.createdAt,
-      severity: event.severity
-    });
-  }
-  
-  broadcastCameraStatus(cameraId: string, status: string) {
-    this.io.emit('camera-status-changed', { cameraId, status });
-  }
-}
-
-// Frontend - Event listening
-useEffect(() => {
-  socket.on('new-event', (event) => {
-    dispatch(addEvent(event));
-    showNotification(`${event.type} detected!`);
-  });
-  
-  socket.on('camera-status-changed', ({ cameraId, status }) => {
-    dispatch(updateCameraStatus({ cameraId, status }));
-  });
-}, []);
-```
-
-### 5. **Factory Pattern - Service Creation**
-
-#### **Service Factory for AI Models**
-```python
-# ai-service/src/services/model_factory.py
-class ModelFactory:
-    @staticmethod
-    def create_detector(model_type: str):
-        if model_type == 'yolov8':
-            return YOLOv8Detector()
-        elif model_type == 'faster_rcnn':
-            return FasterRCNNDetector()
-        else:
-            raise ValueError(f"Unknown model type: {model_type}")
-
-# Usage
-detector = ModelFactory.create_detector('yolov8')
-results = detector.detect(frame)
-```
-
-### 6. **Middleware Pattern - Request Processing**
-
-#### **Authentication Middleware**
-```javascript
-// auth.ts middleware
-export const authenticateToken = (req: Request, res: Response, next: NextFunction) => {
-  const authHeader = req.headers['authorization'];
-  const token = authHeader && authHeader.split(' ')[1];
-  
-  if (!token) {
-    return res.status(401).json({ error: 'Access token required' });
-  }
-  
-  jwt.verify(token, process.env.JWT_SECRET!, (err, decoded) => {
-    if (err) {
-      return res.status(403).json({ error: 'Invalid token' });
+    Report {
+        ObjectId _id
+        ObjectId companyId
+        ObjectId eventId
+        ObjectId reporterId
+        string reportType
+        string title
+        string description
+        Point location
+        ObjectIdArray attachments
+        Date createdAt
     }
-    req.userId = (decoded as any).userId;
-    next();
-  });
-};
 
-// Usage in routes
-router.get('/cameras', authenticateToken, getCameras);
+    User {
+        ObjectId _id
+        ObjectId companyId
+        string email
+        string phone
+        string role
+        boolean isActive
+        Date lastLogin
+    }
+
+    Company {
+        ObjectId _id
+        string name
+        string apiKey
+        object subscription
+        object settings
+    }
 ```
 
-## 📊 Database Design
+## Deployment Architecture
 
-### **Collection Schemas**
+```mermaid
+graph TB
+    subgraph "Load Balancer"
+        Nginx[Nginx Reverse Proxy<br/>SSL Termination<br/>Rate Limiting]
+    end
 
-#### Users Collection
-```javascript
-{
-  _id: ObjectId,
-  username: String (unique, indexed),
-  email: String (unique, indexed),
-  passwordHash: String,
-  role: String ('admin' | 'manager' | 'guard'),
-  profile: {
-    firstName: String,
-    lastName: String,
-    department: String,
-    phoneNumber: String
-  },
-  settings: {
-    emailNotifications: Boolean,
-    smsNotifications: Boolean,
-    theme: String ('light' | 'dark')
-  },
-  createdAt: Date,
-  lastLoginAt: Date
-}
+    subgraph "Application Layer"
+        API1[API Server 1<br/>Node.js]
+        API2[API Server 2<br/>Node.js]
+        API3[API Server 3<br/>Node.js]
+    end
+
+    subgraph "Service Layer"
+        AI1[AI Service 1<br/>Python]
+        AI2[AI Service 2<br/>Python]
+    end
+
+    subgraph "Data Layer"
+        MongoDB1[(MongoDB Primary)]
+        MongoDB2[(MongoDB Secondary)]
+        MongoDB3[(MongoDB Arbiter)]
+        Redis[(Redis Cluster)]
+    end
+
+    subgraph "Storage"
+        MinIO[MinIO S3<br/>File Storage]
+    end
+
+    Client[External Clients] --> Nginx
+    Nginx --> API1
+    Nginx --> API2
+    Nginx --> API3
+
+    API1 --> AI1
+    API2 --> AI2
+    API3 --> AI1
+
+    API1 --> MongoDB1
+    API2 --> MongoDB1
+    API3 --> MongoDB1
+
+    MongoDB1 --> MongoDB2
+    MongoDB2 --> MongoDB3
+
+    API1 --> Redis
+    API2 --> Redis
+    API3 --> Redis
+
+    API1 --> MinIO
+    API2 --> MinIO
+    API3 --> MinIO
 ```
 
-#### Cameras Collection
-```javascript
-{
-  _id: ObjectId,
-  name: String (indexed),
-  location: {
-    latitude: Number,
-    longitude: Number,
-    address: String,
-    zone: String
-  },
-  streamUrl: String,
-  status: String ('online' | 'offline' | 'maintenance'),
-  settings: {
-    resolution: String,
-    frameRate: Number,
-    nightVision: Boolean,
-    motionDetection: Boolean
-  },
-  aiEnabled: Boolean,
-  lastSeen: Date,
-  createdAt: Date,
-  createdBy: ObjectId (ref: 'User')
-}
+## Security Architecture
+
+```mermaid
+graph TD
+    subgraph "Network Security"
+        WAF[Web Application Firewall<br/>ModSecurity]
+        DDoS[DDoS Protection<br/>CloudFlare]
+        Firewall[Network Firewall<br/>IP Whitelisting]
+    end
+
+    subgraph "Application Security"
+        Auth[Authentication<br/>JWT + API Keys]
+        Authz[Authorization<br/>RBAC + Company Scope]
+        InputVal[Input Validation<br/>Joi + Sanitization]
+        Encryption[Data Encryption<br/>TLS + Field Encryption]
+    end
+
+    subgraph "Data Security"
+        AccessCtrl[Access Control<br/>Query Filtering]
+        Audit[Audit Logging<br/>All Operations]
+        Backup[Encrypted Backups<br/>Daily Rotation]
+        Retention[Data Retention<br/>Compliance Rules]
+    end
+
+    WAF --> Auth
+    DDoS --> Auth
+    Firewall --> Auth
+
+    Auth --> Authz
+    Authz --> InputVal
+    InputVal --> Encryption
+
+    Encryption --> AccessCtrl
+    AccessCtrl --> Audit
+    Audit --> Backup
+    Backup --> Retention
 ```
 
-#### Events Collection
-```javascript
-{
-  _id: ObjectId,
-  type: String ('person_detected' | 'vehicle_detected' | 'motion_detected'),
-  cameraId: ObjectId (ref: 'Camera', indexed),
-  severity: String ('low' | 'medium' | 'high' | 'critical'),
-  confidence: Number (0-1),
-  boundingBox: {
-    x: Number,
-    y: Number,
-    width: Number,
-    height: Number
-  },
-  metadata: {
-    objectCount: Number,
-    detectedClasses: [String],
-    frameNumber: Number
-  },
-  status: String ('pending' | 'acknowledged' | 'resolved'),
-  acknowledgedBy: ObjectId (ref: 'User'),
-  acknowledgedAt: Date,
-  createdAt: Date (indexed)
-}
+## Performance Architecture
+
+```mermaid
+graph TD
+    subgraph "Caching Layers"
+        CDN[CDN<br/>Static Assets]
+        AppCache[Application Cache<br/>Redis]
+        DBCache[Database Cache<br/>MongoDB WiredTiger]
+    end
+
+    subgraph "Optimization Strategies"
+        ConnectionPool[Connection Pooling<br/>MongoDB]
+        QueryOptimization[Query Optimization<br/>Indexes + Aggregation]
+        Compression[Response Compression<br/>Gzip]
+        Pagination[Cursor Pagination<br/>Large Datasets]
+    end
+
+    subgraph "Monitoring"
+        APM[Application Performance<br/>New Relic]
+        Metrics[Custom Metrics<br/>Prometheus]
+        Alerts[Alerting<br/>PagerDuty]
+    end
+
+    CDN --> AppCache
+    AppCache --> DBCache
+
+    ConnectionPool --> QueryOptimization
+    QueryOptimization --> Compression
+    Compression --> Pagination
+
+    APM --> Metrics
+    Metrics --> Alerts
 ```
 
-#### Sessions Collection (for JWT blacklisting)
-```javascript
-{
-  _id: ObjectId,
-  userId: ObjectId (ref: 'User', indexed),
-  tokenHash: String,
-  expiresAt: Date (indexed, TTL),
-  createdAt: Date,
-  userAgent: String,
-  ipAddress: String
-}
-```
-
-### **Database Indexes for Performance**
-```javascript
-// Critical indexes for query performance
-db.users.createIndex({ email: 1 }, { unique: true });
-db.users.createIndex({ username: 1 }, { unique: true });
-
-db.cameras.createIndex({ name: 1 });
-db.cameras.createIndex({ "location.zone": 1 });
-db.cameras.createIndex({ status: 1 });
-
-db.events.createIndex({ cameraId: 1, createdAt: -1 });
-db.events.createIndex({ type: 1, createdAt: -1 });
-db.events.createIndex({ severity: 1, status: 1 });
-db.events.createIndex({ createdAt: -1 }); // Recent events
-
-db.sessions.createIndex({ userId: 1 });
-db.sessions.createIndex({ expiresAt: 1 }, { expireAfterSeconds: 0 }); // TTL
-```
-
-## 🔒 Security Architecture
-
-### **Defense in Depth Strategy**
-
-#### 1. **Frontend Security**
-- JWT token stored securely (httpOnly cookies in production)
-- Input validation and sanitization
-- XSS prevention with Content Security Policy
-- CSRF protection for state-changing operations
-
-#### 2. **API Security**
-- JWT authentication on all protected routes
-- Rate limiting to prevent abuse
-- Input validation with Joi/Yup schemas
-- SQL injection prevention (using ODM)
-- CORS configuration for allowed origins
-
-#### 3. **Database Security**
-- MongoDB authentication enabled
-- Database connections over encrypted channels
-- Sensitive data encryption at rest
-- Regular security updates and patches
-
-#### 4. **Infrastructure Security**
-- Docker containers with minimal attack surface
-- Network segmentation with Docker networks
-- Environment variables for sensitive configuration
-- SSL/TLS encryption for all external communications
-
-### **Authentication & Authorization Flow**
-```
-1. User Login → Credentials validation → JWT generation
-2. JWT contains: { userId, role, exp, iat }
-3. Every API request → JWT verification → Role-based access
-4. Roles: 'admin' (full access), 'manager' (read/write), 'guard' (read-only)
-```
-
-## 🚀 Scalability Considerations
-
-### **Horizontal Scaling Strategy**
-
-#### 1. **Stateless Services**
-- No server-side sessions (JWT tokens)
-- Each request contains all necessary information
-- Services can be replicated without shared state
-
-#### 2. **Database Scaling**
-- MongoDB sharding by camera location/zone
-- Read replicas for heavy read workloads
-- Separate analytics database for historical data
-
-#### 3. **Caching Strategy**
-- Redis for session management and real-time data
-- Browser caching for static assets
-- API response caching for frequently requested data
-
-#### 4. **Load Balancing**
-```
-Internet → Load Balancer → Multiple Backend Instances
-                      → Multiple AI Service Instances
-                      → MongoDB Cluster
-```
-
-### **Performance Optimization**
-
-#### 1. **Frontend Optimization**
-- Code splitting for faster initial load
-- Lazy loading of components
-- Image compression and optimization
-- CDN for static assets
-
-#### 2. **Backend Optimization**
-- Database query optimization
-- Connection pooling
-- Asynchronous processing for heavy operations
-- API response compression
-
-#### 3. **AI Service Optimization**
-- Model optimization for inference speed
-- GPU acceleration for video processing
-- Batch processing of multiple streams
-- Result caching for recent frames
-
-## 🔄 DevOps & Deployment Architecture
-
-### **Environment Strategy**
-```
-Development → Testing → Staging → Production
-     ↓           ↓         ↓          ↓
-Docker Compose  K8s    K8s Cluster  K8s Cluster
-Local DB        Test DB   Stage DB   Prod DB
-```
-
-### **CI/CD Pipeline**
-```
-Code Commit → GitHub Actions → Tests → Build → Deploy
-                    ↓
-              Unit Tests + Integration Tests
-                    ↓
-              Docker Image Build
-                    ↓
-              Security Scanning
-                    ↓
-              Automated Deployment
-```
-
-This architecture provides a robust, scalable, and maintainable foundation for our Event Monitoring MVP. Each pattern and design decision supports our goals of reliability, performance, and developer productivity while maintaining security and scalability for future growth.
+These diagrams provide a comprehensive view of the Event Monitoring Platform's architecture, showing how components interact, data flows through the system, and how multi-tenant isolation is maintained across all layers.
