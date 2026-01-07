@@ -193,11 +193,14 @@ userSchema.pre('save', async function (next) {
   try {
     const salt = await bcrypt.genSalt(12);
     this.password = await bcrypt.hash(this.password, salt);
-    next();
+    return next();
   } catch (error) {
-    return next(error);
+  const err = error instanceof Error ? error : new Error(String(error));
+  return next(err);
   }
 });
+
+
 
 // Compare password method
 userSchema.methods.comparePassword = async function (candidatePassword: string): Promise<boolean> {

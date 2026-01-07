@@ -3,8 +3,9 @@ import jwt from 'jsonwebtoken';
 import { User, IUser } from '../models/User';
 
 interface AuthenticatedRequest extends Request {
-  user?: IUser & { userId?: string; };
+  user?: (IUser & { userId?: string }) | any;
 }
+
 
 /**
  * Enhanced Authentication Middleware
@@ -25,8 +26,8 @@ export const auth = async (req: AuthenticatedRequest, res: Response, next: NextF
 
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallback-secret') as any;
     const user = await User.findById(decoded.userId)
-      .populate('permissions.granted', 'name resource actions scope')
-      .populate('permissions.inherited', 'name resource actions scope')
+      // .populate('permissions.granted', 'name resource actions scope')
+      // .populate('permissions.inherited', 'name resource actions scope')
       .select('-password -authentication.otpSecret -authentication.recoveryTokens');
 
     if (!user || !user.isActive) {
@@ -66,18 +67,23 @@ export const auth = async (req: AuthenticatedRequest, res: Response, next: NextF
  */
 export const requireRole = (allowedRoles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
-      res.status(403).json({ 
+    const userRoles: string[] = req.user?.roles || [];
+
+    const allowed = userRoles.some(r => allowedRoles.includes(r));
+    if (!req.user || !allowed) {
+      res.status(403).json({
         success: false,
         message: 'Access denied. Insufficient role permissions.',
         requiredRoles: allowedRoles,
-        userRole: req.user?.role
+        userRoles,
       });
       return;
     }
+
     next();
   };
 };
+
 
 /**
  * Permission-based authorization middleware
@@ -99,7 +105,7 @@ export const requirePermission = (permissionName: string, options: {
       }
 
       // Super admin has all permissions
-      if (req.user.role === 'super_admin') {
+      if ((req.user.roles ?? []).includes('super_admin'))  {
         return next();
       }
 
@@ -119,15 +125,25 @@ export const requirePermission = (permissionName: string, options: {
         userIp: req.ip
       };
 
-      const hasPermission = await req.user.hasPermission(permissionName, context);
+      const [resource, action] = permissionName.includes(':')
+      ? permissionName.split(':', 2)
+      : [permissionName, '*'];
+
+      const hasPermission = (req.user.permissions || []).some((p: any) =>
+        p.granted &&
+        p.resource === resource &&
+        (p.action === action || p.action === '*')
+      );
+
+      
       if (!hasPermission) {
-        res.status(403).json({
-          success: false,
-          message: 'Insufficient permissions for this operation',
-          requiredPermission: permissionName
-        });
-        return;
-      }
+       res.status(403).json({
+       success: false,
+       message: 'Insufficient permissions for this operation',
+       requiredPermission: permissionName,
+      });
+  return;
+}
 
       next();
     } catch (error) {
@@ -180,8 +196,10 @@ export const mobileAuth = async (req: AuthenticatedRequest, res: Response, next:
 
     // Update last activity for mobile users
     if (user.authMethod === 'phone_otp') {
-      user.updateLastActivity();
+      user.authentication.lastLoginAt = new Date();
+      await user.save();
     }
+
 
     req.user = { ...user.toObject(), userId: user._id.toString() };
     next();

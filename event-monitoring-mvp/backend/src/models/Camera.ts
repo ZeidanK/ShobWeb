@@ -5,9 +5,11 @@ export interface ICamera extends Document {
   description?: string;
   streamUrl: string;
   location: {
-    coordinates: [number, number]; // [longitude, latitude]
-    address?: string;
+  type: 'Point';
+  coordinates: [number, number]; // [lng, lat]
+  address?: string;
   };
+
   status: 'online' | 'offline' | 'maintenance';
   type: 'ip' | 'analog' | 'usb';
   settings: {
@@ -15,10 +17,13 @@ export interface ICamera extends Document {
     fps: number;
     recordingEnabled: boolean;
   };
-  isActive: boolean;
-  createdBy: mongoose.Types.ObjectId;
-  createdAt: Date;
-  updatedAt: Date;
+    isDeleted: boolean;
+   lastModified?: Date;
+   lastSeen?: Date;
+   isActive: boolean;
+   createdBy: mongoose.Types.ObjectId;
+   createdAt: Date;
+   updatedAt: Date;
 }
 
 const cameraSchema = new Schema<ICamera>(
@@ -42,24 +47,29 @@ const cameraSchema = new Schema<ICamera>(
       ]
     },
     location: {
-      type: {
-        coordinates: {
-          type: [Number],
+        type: {
+          type: String,
+          enum: ['Point'],
+          default: 'Point',
           required: true,
-          validate: {
-            validator: function(coordinates: number[]) {
-              return coordinates.length === 2 && 
-                     coordinates[0] >= -180 && coordinates[0] <= 180 &&
-                     coordinates[1] >= -90 && coordinates[1] <= 90;
-            },
-            message: 'Coordinates must be [longitude, latitude] with valid ranges'
-          }
         },
-        address: String
+        coordinates: {
+        type: [Number],
+        required: true,
+        validate: {
+          validator: function (coordinates: number[]) {
+            return (
+              coordinates.length === 2 &&
+              coordinates[0] >= -180 && coordinates[0] <= 180 &&
+              coordinates[1] >= -90 && coordinates[1] <= 90
+            );
+          },
+          message: 'Coordinates must be [longitude, latitude] with valid ranges',
+        },
       },
-      required: true,
-      index: '2dsphere'
+      address: { type: String },
     },
+
     status: {
       type: String,
       enum: ['online', 'offline', 'maintenance'],
@@ -90,6 +100,18 @@ const cameraSchema = new Schema<ICamera>(
       type: Boolean,
       default: true
     },
+
+    isDeleted: {
+      type: Boolean,
+      default: false
+    },
+    lastModified: {
+      type: Date
+    },
+    lastSeen: {
+      type: Date
+    },
+    
     createdBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: 'User',

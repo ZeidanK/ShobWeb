@@ -1,10 +1,13 @@
 import { Request, Response } from 'express';
-import { Camera, ICamera } from '../models/Camera';
+import { Camera } from '../models/Camera';
+
+
+type AuthReq = Request & { user?: { userId?: string } };
 
 // @desc    Get all cameras
 // @route   GET /api/cameras
 // @access  Private
-export const getCameras = async (req: Request, res: Response): Promise<void> => {
+export const getCameras = async (_req: Request, res: Response): Promise<void> => {
   try {
     const cameras = await Camera.find({ isDeleted: false }).sort({ createdAt: -1 });
     
@@ -53,10 +56,12 @@ export const getCamera = async (req: Request, res: Response): Promise<void> => {
   }
 };
 
+
+
 // @desc    Create camera
 // @route   POST /api/cameras
 // @access  Private (Admin/Manager)
-export const createCamera = async (req: Request, res: Response): Promise<void> => {
+export const createCamera = async (req: AuthReq, res: Response): Promise<void> => {
   try {
     const {
       name,
@@ -77,12 +82,24 @@ export const createCamera = async (req: Request, res: Response): Promise<void> =
       return;
     }
 
+    if (!req.user?.userId) {
+        res.status(401).json({ success: false, message: 'Authentication required' });
+        return;
+    }
+
+    const normalizedLocation = {
+      type: location?.type || 'Point',
+      coordinates: location?.coordinates,
+      address: location?.address,
+    };
+
+
     const camera = await Camera.create({
       name,
       description,
       streamUrl,
       type: type || 'ip',
-      location,
+      location : normalizedLocation,
       settings: {
         resolution: settings?.resolution || '1920x1080',
         fps: settings?.fps || 30,

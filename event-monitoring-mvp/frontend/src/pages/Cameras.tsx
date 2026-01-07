@@ -27,7 +27,8 @@ import {
   Stop as StopIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { fetchCamerasData } from '../services/dataService';
+import { getCameras } from '../services/cameraService';
+
 
 // Camera interface matching backend model structure
 interface Camera {
@@ -57,21 +58,18 @@ const Cameras: React.FC = () => {
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
   const [loading, setLoading] = useState(true);
-
-  // API call to fetch cameras from backend
+  
   const fetchCameras = async () => {
     try {
       setLoading(true);
-      
-      const cameras = await fetchCamerasData();
-      setCameras(cameras);
+      const cameraList = await getCameras();
+      setCameras(cameraList);
     } catch (error) {
       console.error('Error fetching cameras:', error);
     } finally {
       setLoading(false);
     }
   };
-
   useEffect(() => {
     fetchCameras();
   }, []);

@@ -163,8 +163,9 @@ export const validateCamera = (req: Request, res: Response, next: NextFunction):
     description: Joi.string().max(500).optional(),
     streamUrl: Joi.string().uri({ scheme: ['http', 'https', 'rtsp'] }).required(),
     location: Joi.object({
+      type: Joi.string().valid('Point').default('Point'),
       coordinates: Joi.array().items(Joi.number()).length(2).required(),
-      address: Joi.string().optional()
+      address: Joi.string().optional(),
     }).required(),
     type: Joi.string().valid('ip', 'analog', 'usb').default('ip'),
     settings: Joi.object({

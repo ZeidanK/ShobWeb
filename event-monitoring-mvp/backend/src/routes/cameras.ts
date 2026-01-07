@@ -27,7 +27,7 @@ router.get('/:id', auth, getCamera);
 // @route   POST /api/cameras
 // @desc    Create new camera
 // @access  Private (Admin only)
-router.post('/', auth, adminOnly, validateCamera, createCamera);
+router.post('/', auth, validateCamera, createCamera);
 
 // @route   PUT /api/cameras/:id
 // @desc    Update camera
