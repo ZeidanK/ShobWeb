@@ -27,7 +27,9 @@ import {
   Stop as StopIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { getCameras } from '../services/cameraService';
+import { getCameras, deleteCamera, setCameraStatus } from '../services/cameraService';
+
+
 
 
 // Camera interface matching backend model structure
@@ -73,6 +75,36 @@ const Cameras: React.FC = () => {
   useEffect(() => {
     fetchCameras();
   }, []);
+
+  const handleToggleConnection = async (camera: Camera) => {
+    try {
+      // If it's online -> disconnect (set offline)
+      // If it's offline/maintenance -> connect (set online)
+      const newStatus = camera.status === 'online' ? 'offline' : 'online';
+      await setCameraStatus(camera._id, newStatus);
+
+      // simplest: refetch list so UI always matches DB
+      await fetchCameras();
+    } catch (error) {
+      console.error('Error updating camera status:', error);
+    }
+  };
+
+  const handleDeleteCamera = async (camera: Camera) => {
+    // simple confirm for now (fast + effective)
+    const ok = window.confirm(`Delete camera "${camera.name}"?`);
+    if (!ok) return;
+
+    try {
+      await deleteCamera(camera._id);
+
+      // update UI
+      await fetchCameras();
+    } catch (error) {
+      console.error('Error deleting camera:', error);
+    }
+  };
+
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -159,13 +191,14 @@ const Cameras: React.FC = () => {
           size="small"
           startIcon={camera.status === 'online' ? <StopIcon /> : <PlayArrowIcon />}
           color={camera.status === 'online' ? 'error' : 'success'}
+          onClick={() => handleToggleConnection(camera)}
         >
-          {camera.status === 'online' ? 'Stop AI' : 'Start AI'}
+          {camera.status === 'online' ? 'Disconnect' : 'Connect'}
         </Button>
         <IconButton size="small" onClick={() => handleEditCamera(camera)}>
           <EditIcon />
         </IconButton>
-        <IconButton size="small" color="error">
+        <IconButton size="small" color="error" onClick={() => handleDeleteCamera(camera)}>
           <DeleteIcon />
         </IconButton>
       </CardActions>

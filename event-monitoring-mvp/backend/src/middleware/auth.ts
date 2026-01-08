@@ -67,7 +67,8 @@ export const auth = async (req: AuthenticatedRequest, res: Response, next: NextF
  */
 export const requireRole = (allowedRoles: string[]) => {
   return (req: AuthenticatedRequest, res: Response, next: NextFunction): void => {
-    const userRoles: string[] = req.user?.roles || [];
+    const rawRoles = (req.user?.roles ?? (req.user as any)?.role ?? []);
+    const userRoles: string[] = Array.isArray(rawRoles) ? rawRoles : [rawRoles];
 
     const allowed = userRoles.some(r => allowedRoles.includes(r));
     if (!req.user || !allowed) {

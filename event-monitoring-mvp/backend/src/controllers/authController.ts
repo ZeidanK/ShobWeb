@@ -105,13 +105,19 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       password, 
       phone, 
       authMethod, 
-      role, 
+      role,
+      roles,
       profile,
       deviceInfo 
     } = req.body;
-
+      
     const authType = authMethod || 'email_password';
-    const userRole = role || 'operator';
+    // normalize: accept roles[] or role, always store roles as array
+    const normalizedRoles =
+    Array.isArray(roles) && roles.length ? roles :
+    typeof role === 'string' && role ? [role] :
+    ['operator'];
+
 
     // Validate required fields based on auth method
     if (authType === 'email_password') {
@@ -152,13 +158,14 @@ export const register = async (req: Request, res: Response): Promise<void> => {
 
     // Create user data object
     const userData: any = {
-      role: userRole,
+      roles: normalizedRoles,
       authMethod: authType,
       isActive: true,
       metadata: {
         source: 'admin_created'
       }
     };
+
 
     // Add authentication-specific fields
     if (authType === 'email_password') {
@@ -199,10 +206,11 @@ export const register = async (req: Request, res: Response): Promise<void> => {
     // Generate JWT token
     const token = generateToken(
       user._id.toString(), 
-      user.role, 
+      user.roles?.[0] || 'operator',
       user.authMethod, 
       deviceInfo
     );
+
 
     // Return appropriate response based on auth method
     const response: any = {
@@ -217,7 +225,8 @@ export const register = async (req: Request, res: Response): Promise<void> => {
           username: user.username,
           email: user.email,
           phone: user.phone,
-          role: user.role,
+          role: user.roles?.[0] || 'operator',
+          roles: user.roles || [],
           authMethod: user.authMethod,
           fullName: user.fullName,
           isVerified: user.isVerified
@@ -520,7 +529,8 @@ export const getProfile = async (req: Request, res: Response): Promise<void> => 
           username: user.username,
           email: user.email,
           phone: user.phone,
-          role: user.role,
+          role: user.roles?.[0] || 'operator',
+          roles: user.roles || [],
           authMethod: user.authMethod,
           fullName: user.fullName,
           isActive: user.isActive,

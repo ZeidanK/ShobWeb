@@ -8,7 +8,7 @@ const users = [
     username: 'admin',
     email: 'admin@example.com',
     password: 'password123',
-    role: 'super_admin',
+    roles: ['super_admin'],
     authMethod: 'email_password',
     profile: {
       firstName: 'System',
@@ -19,7 +19,7 @@ const users = [
     username: 'operator1', 
     email: 'operator1@example.com',
     password: 'password123',
-    role: 'operator',
+    role: ['operator'],
     authMethod: 'email_password',
     profile: {
       firstName: 'John',
@@ -30,7 +30,7 @@ const users = [
     username: 'operator2',
     email: 'operator2@example.com', 
     password: 'password123',
-    role: 'operator',
+    role: ['operator'],
     authMethod: 'email_password',
     profile: {
       firstName: 'Jane',
@@ -41,7 +41,7 @@ const users = [
     username: 'mobile_admin',
     email: 'mobile@example.com',
     password: 'password123',
-    role: 'mobile_admin',
+    role: ['mobile_admin'],
     authMethod: 'email_password',
     profile: {
       firstName: 'Mobile',
