@@ -7,8 +7,15 @@ import {
   deleteCamera,
   updateCameraStatus,
   startAIProcessing,
-  stopAIProcessing
+  stopAIProcessing,
 } from '../controllers/cameraController';
+
+import {
+  connectCameraToVms,
+  disconnectCameraFromVms,
+  getCameraVmsStreams
+} from '../controllers/cameraVmsController';
+
 import { auth, adminOnly } from '../middleware/auth';
 import { validateCamera } from '../middleware/validation';
 
@@ -44,6 +51,34 @@ router.delete('/:id', auth, adminOnly, deleteCamera);
 // @access  Private
 router.patch('/:id/status', auth, updateCameraStatus);
 
+/**
+ * VMS Integration Routes
+ *
+ * What these routes do:
+ * - Connect/Disconnect: store/clear a mapping between our Camera record and a VMS server/monitor.
+ * - Streams: return stream information for the frontend (RTSP now; browser-playable URLs later).
+ *
+ * Why we need these:
+ * - VMS is essential per Jira: the VMS manages live + recordings.
+ * - Our app needs a stable API contract to attach cameras to a VMS and fetch playable URLs.
+ */
+
+// @route   POST /api/cameras/:id/vms/connect
+// @desc    Connect camera to a VMS server (save mapping to camera.vms)
+// @access  Private (Admin only)
+router.post('/:id/vms/connect', auth, adminOnly, connectCameraToVms);
+
+// @route   POST /api/cameras/:id/vms/disconnect
+// @desc    Disconnect camera from VMS (clear mapping from camera.vms)
+// @access  Private (Admin only)
+router.post('/:id/vms/disconnect', auth, adminOnly, disconnectCameraFromVms);
+
+// @route   GET /api/cameras/:id/vms/streams
+// @desc    Get stream info for camera (RTSP + VMS mapping; later HLS/WebRTC URLs)
+// @access  Private
+router.get('/:id/vms/streams', auth, getCameraVmsStreams);
+
+
 // @route   POST /api/cameras/:id/ai/start
 // @desc    Start AI processing for camera
 // @access  Private
@@ -53,5 +88,7 @@ router.post('/:id/ai/start', auth, startAIProcessing);
 // @desc    Stop AI processing for camera
 // @access  Private
 router.post('/:id/ai/stop', auth, stopAIProcessing);
+
+
 
 export default router;

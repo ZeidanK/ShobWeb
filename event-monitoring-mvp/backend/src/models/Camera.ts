@@ -17,7 +17,15 @@ export interface ICamera extends Document {
     fps: number;
     recordingEnabled: boolean;
   };
-    isDeleted: boolean;
+
+   vms?: {
+    provider: 'shinobi' | 'zoneminder' | 'agentdvr' | 'other';
+    serverId?: mongoose.Types.ObjectId; // ref: VmsServer
+    monitorId?: string; // provider-specific id for the camera/monitor inside the VMS
+    lastSyncAt?: Date;  // last time we synced/connected this camera to the VMS
+  };
+
+   isDeleted: boolean;
    lastModified?: Date;
    lastSeen?: Date;
    isActive: boolean;
@@ -91,6 +99,30 @@ const cameraSchema = new Schema<ICamera>(
         min: 1,
         max: 60
       },
+
+          /**
+     * VMS mapping block
+     * Why: allows attaching a camera to a specific VMS server instance + monitor id,
+     * so later we can request live/playback URLs from the VMS instead of trying to play RTSP directly in-browser.
+     */
+    vms: {
+      provider: {
+        type: String,
+        enum: ['shinobi', 'zoneminder', 'agentdvr', 'other'],
+        default: 'other',
+      },
+      serverId: {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: 'VmsServer',
+      },
+      monitorId: {
+        type: String,
+      },
+      lastSyncAt: {
+        type: Date,
+      },
+    },
+
       recordingEnabled: {
         type: Boolean,
         default: false
@@ -128,5 +160,8 @@ cameraSchema.index({ location: '2dsphere' });
 cameraSchema.index({ status: 1 });
 cameraSchema.index({ isActive: 1 });
 cameraSchema.index({ createdBy: 1 });
+cameraSchema.index({ 'vms.serverId': 1 });
+cameraSchema.index({ 'vms.provider': 1 });
+
 
 export const Camera = mongoose.model<ICamera>('Camera', cameraSchema);
