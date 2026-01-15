@@ -198,6 +198,14 @@ export interface CreateVmsServerData {
   };
 }
 
+export interface VmsMonitor {
+  mid?: string;
+  id?: string;
+  name?: string;
+  title?: string;
+  details?: string;
+}
+
 export interface UpdateVmsServerData {
   name?: string;
   provider?: VmsProvider;
@@ -305,6 +313,66 @@ export const updateVmsServer = async (
 
   if (!response.ok) {
     throw new Error(data.message || 'Failed to update VMS server');
+  }
+
+  return data.data;
+};
+
+/**
+ * GET /api/vms/servers/:id/monitors
+ * Fetch monitors from a VMS server (Shinobi).
+ */
+export const getVmsMonitors = async (serverId: string): Promise<VmsMonitor[]> => {
+  const response = await fetch(`${API_URL}/vms/servers/${serverId}/monitors`, {
+    method: 'GET',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
+  });
+
+  if (response.status === 401) {
+    clearAuthStorage();
+  }
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to fetch VMS monitors');
+  }
+
+  return data.data;
+};
+
+/**
+ * POST /api/vms/servers/:id/monitors/import
+ * Batch-import monitors into cameras.
+ */
+export const importVmsMonitors = async (
+  serverId: string,
+  payload: {
+    monitorIds?: string[];
+    defaultLocation?: { coordinates: [number, number]; address?: string };
+    source?: string;
+  }
+) => {
+  const response = await fetch(`${API_URL}/vms/servers/${serverId}/monitors/import`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status === 401) {
+    clearAuthStorage();
+  }
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to import VMS monitors');
   }
 
   return data.data;
@@ -449,4 +517,28 @@ export const testCameraConnection = async (payload: {
   }
 
   return data;
+};
+
+/**
+ * DELETE /api/cameras/source/:source
+ * Bulk delete cameras by metadata.source.
+ */
+export const deleteCamerasBySource = async (source: string): Promise<void> => {
+  const response = await fetch(`${API_URL}/cameras/source/${source}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
+  });
+
+  if (response.status === 401) {
+    clearAuthStorage();
+  }
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to delete cameras');
+  }
 };

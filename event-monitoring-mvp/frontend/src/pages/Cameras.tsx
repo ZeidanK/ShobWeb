@@ -8,11 +8,14 @@ import {
   CardActions,
   Button,
   Chip,
+  Checkbox,
   IconButton,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
+  FormControlLabel,
+  FormGroup,
   TextField,
   MenuItem,
   Fab,
@@ -36,11 +39,15 @@ import {
   createVmsServer,
   updateVmsServer,
   deleteVmsServer,
+  getVmsMonitors,
+  importVmsMonitors,
+  deleteCamerasBySource,
   connectCameraToVms,
   disconnectCameraFromVms,
   getCameraVmsStreams,
   VmsServer,
   VmsProvider,
+  VmsMonitor,
 } from '../services/cameraService';
 
 
@@ -63,6 +70,9 @@ interface Camera {
     fps: number;
     recordingEnabled: boolean;
   };
+  metadata?: {
+    source?: string;
+  };
   isActive: boolean;
   createdAt: string;
   updatedAt: string;
@@ -70,6 +80,7 @@ interface Camera {
 
 const Cameras: React.FC = () => {
   const navigate = useNavigate();
+  const DEMO_SOURCE = 'shinobi-demo';
   const [openDialog, setOpenDialog] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState<Camera | null>(null);
   const [cameras, setCameras] = useState<Camera[]>([]);
@@ -79,6 +90,10 @@ const Cameras: React.FC = () => {
   // -----------------------------
   const [vmsServers, setVmsServers] = useState<VmsServer[]>([]);
   const [vmsLoading, setVmsLoading] = useState(false);
+  const [vmsMonitors, setVmsMonitors] = useState<VmsMonitor[]>([]);
+  const [monitorsLoading, setMonitorsLoading] = useState(false);
+  const [monitorsOpen, setMonitorsOpen] = useState(false);
+  const [selectedMonitorIds, setSelectedMonitorIds] = useState<string[]>([]);
 
   // Create VMS server form fields
   const [newVmsName, setNewVmsName] = useState('Local VMS');
@@ -103,6 +118,11 @@ const Cameras: React.FC = () => {
   const [vmsConnectCamera, setVmsConnectCamera] = useState<Camera | null>(null);
   const [selectedVmsServerId, setSelectedVmsServerId] = useState<string>('');
   const [monitorId, setMonitorId] = useState<string>('');
+
+  // Demo import defaults
+  const [importLat, setImportLat] = useState<string>('0');
+  const [importLng, setImportLng] = useState<string>('0');
+  const [importAddress, setImportAddress] = useState<string>('Imported from VMS');
 
   // TEST-ONLY: Streams dialog prints raw backend response for quick validation.
   const [streamsOpen, setStreamsOpen] = useState(false);
@@ -137,6 +157,73 @@ const Cameras: React.FC = () => {
       console.error('Error fetching VMS servers:', error);
     } finally {
       setVmsLoading(false);
+    }
+  };
+
+  const handleFetchMonitors = async () => {
+    if (!selectedVmsServerId) {
+      alert('Select a VMS server first');
+      return;
+    }
+
+    try {
+      setMonitorsLoading(true);
+      const monitors = await getVmsMonitors(selectedVmsServerId);
+      setVmsMonitors(monitors);
+      setSelectedMonitorIds([]);
+      setMonitorsOpen(true);
+    } catch (error) {
+      console.error('Error fetching VMS monitors:', error);
+      alert((error as any)?.message || 'Failed to fetch VMS monitors');
+    } finally {
+      setMonitorsLoading(false);
+    }
+  };
+
+  const toggleMonitorSelection = (id: string) => {
+    setSelectedMonitorIds((prev) =>
+      prev.includes(id) ? prev.filter((mid) => mid !== id) : [...prev, id]
+    );
+  };
+
+  const handleImportMonitors = async (importAll: boolean) => {
+    if (!selectedVmsServerId) {
+      alert('Select a VMS server first');
+      return;
+    }
+
+    const lat = Number(importLat);
+    const lng = Number(importLng);
+    if (Number.isNaN(lat) || Number.isNaN(lng)) {
+      alert('Default location coordinates must be numbers');
+      return;
+    }
+
+    try {
+      await importVmsMonitors(selectedVmsServerId, {
+        monitorIds: importAll ? undefined : selectedMonitorIds,
+        defaultLocation: { coordinates: [lng, lat], address: importAddress },
+        source: DEMO_SOURCE,
+      });
+
+      await fetchCameras();
+      setMonitorsOpen(false);
+    } catch (error) {
+      console.error('Error importing monitors:', error);
+      alert((error as any)?.message || 'Failed to import monitors');
+    }
+  };
+
+  const handleDeleteDemoCameras = async () => {
+    const ok = window.confirm('Delete all demo cameras imported from Shinobi?');
+    if (!ok) return;
+
+    try {
+      await deleteCamerasBySource(DEMO_SOURCE);
+      await fetchCameras();
+    } catch (error) {
+      console.error('Error deleting demo cameras:', error);
+      alert((error as any)?.message || 'Failed to delete demo cameras');
     }
   };
 
@@ -441,11 +528,11 @@ const Cameras: React.FC = () => {
         </Typography>
       </Box>
 
-            {/* TEST-ONLY: VMS Servers Panel is for integration setup during development. */}
-            <Card sx={{ mb: 3 }}>
+      {/* TEST-ONLY: Shinobi demo/test flow kept separate for easy cleanup. */}
+      <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
-            VMS Servers
+            Shinobi Demo / Test
           </Typography>
 
           <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -479,7 +566,7 @@ const Cameras: React.FC = () => {
               sx={{ minWidth: 260 }}
             />
 
-                        <TextField
+            <TextField
               label="API Key (Shinobi)"
               size="small"
               value={newVmsApiKey}
@@ -533,6 +620,54 @@ const Cameras: React.FC = () => {
               ))
             )}
           </Box>
+
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', mt: 2 }}>
+            <TextField
+              label="Default Lat"
+              size="small"
+              value={importLat}
+              onChange={(e) => setImportLat(e.target.value)}
+              sx={{ maxWidth: 140 }}
+            />
+            <TextField
+              label="Default Lng"
+              size="small"
+              value={importLng}
+              onChange={(e) => setImportLng(e.target.value)}
+              sx={{ maxWidth: 140 }}
+            />
+            <TextField
+              label="Default Address"
+              size="small"
+              value={importAddress}
+              onChange={(e) => setImportAddress(e.target.value)}
+              sx={{ minWidth: 260 }}
+            />
+            <Button variant="outlined" onClick={handleFetchMonitors} disabled={monitorsLoading}>
+              Discover Monitors
+            </Button>
+            <Button variant="outlined" onClick={() => handleImportMonitors(true)}>
+              Import All
+            </Button>
+            <Button variant="outlined" color="error" onClick={handleDeleteDemoCameras}>
+              Delete Demo Cameras
+            </Button>
+          </Box>
+        </CardContent>
+      </Card>
+
+      {/* Production flow: use full camera form for real deployments. */}
+      <Card sx={{ mb: 3 }}>
+        <CardContent>
+          <Typography variant="h6" gutterBottom>
+            Production / Real Cameras
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Use the full camera form for real deployments (location, settings, validation).
+          </Typography>
+          <Button variant="contained" onClick={handleAddCamera}>
+            Add Production Camera
+          </Button>
         </CardContent>
       </Card>
 
@@ -714,6 +849,47 @@ const Cameras: React.FC = () => {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setStreamsOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* TEST-ONLY: Shinobi monitor discovery dialog for demo imports. */}
+      <Dialog open={monitorsOpen} onClose={() => setMonitorsOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Shinobi Monitors</DialogTitle>
+        <DialogContent>
+          {monitorsLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress />
+            </Box>
+          ) : (
+            <FormGroup>
+              {/* Defensive guard in case the API returns a non-array shape. */}
+              {(Array.isArray(vmsMonitors) ? vmsMonitors : []).map((monitor) => {
+                const id = String(monitor.mid || monitor.id);
+                return (
+                  <FormControlLabel
+                    key={id}
+                    control={
+                      <Checkbox
+                        checked={selectedMonitorIds.includes(id)}
+                        onChange={() => toggleMonitorSelection(id)}
+                      />
+                    }
+                    label={`${monitor.name || monitor.title || id}`}
+                  />
+                );
+              })}
+            </FormGroup>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setMonitorsOpen(false)}>Close</Button>
+          <Button
+            variant="contained"
+            onClick={() => handleImportMonitors(false)}
+            disabled={selectedMonitorIds.length === 0}
+          >
+            Import Selected
+          </Button>
         </DialogActions>
       </Dialog>
 

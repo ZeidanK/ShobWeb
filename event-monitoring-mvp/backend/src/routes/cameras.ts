@@ -5,6 +5,7 @@ import {
   createCamera,
   updateCamera,
   deleteCamera,
+  deleteCamerasBySource,
   updateCameraStatus,
   startAIProcessing,
   stopAIProcessing,
@@ -42,6 +43,12 @@ router.post('/', auth, validateCamera, createCamera);
 // @access  Private (Admin only)
 router.put('/:id', auth, validateCamera, updateCamera);
 
+
+// TEST-ONLY: Bulk delete for demo/import sources (soft delete).
+// @route   DELETE /api/cameras/source/:source
+// @desc    Delete cameras by metadata.source
+// @access  Private (dev branch: any authenticated user)
+router.delete('/source/:source', auth, deleteCamerasBySource);
 
 // @route   DELETE /api/cameras/:id
 // @desc    Delete camera

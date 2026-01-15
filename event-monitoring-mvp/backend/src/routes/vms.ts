@@ -1,6 +1,13 @@
 import { Router } from 'express';
 import { auth } from '../middleware/auth';
-import { listVmsServers, createVmsServer, updateVmsServer, deleteVmsServer } from '../controllers/vmsController';
+import {
+  listVmsServers,
+  createVmsServer,
+  updateVmsServer,
+  deleteVmsServer,
+  listVmsMonitors,
+  importVmsMonitors,
+} from '../controllers/vmsController';
 
 const router = Router();
 
@@ -19,5 +26,13 @@ router.post('/servers', createVmsServer);
 router.patch('/servers/:id', updateVmsServer);
 // Soft-delete a VMS server (mark inactive) so it stops appearing in active lists.
 router.delete('/servers/:id', deleteVmsServer);
+
+// @route   GET /api/vms/servers/:id/monitors
+// @desc    List monitors from a VMS server (Shinobi)
+router.get('/servers/:id/monitors', listVmsMonitors);
+
+// @route   POST /api/vms/servers/:id/monitors/import
+// @desc    Batch-import monitors into cameras (Shinobi)
+router.post('/servers/:id/monitors/import', importVmsMonitors);
 
 export default router;

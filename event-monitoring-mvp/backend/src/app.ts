@@ -76,8 +76,33 @@ const limiter = rateLimit({
  * Security and Performance Middleware Stack
  */
 app.use(helmet());         // Security headers protection
+// TEST-ONLY: Relax CORS in non-production to avoid dev network errors.
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  'http://localhost:5173',
+  'http://127.0.0.1:5173',
+].filter(Boolean);
+
+const isProd = process.env.NODE_ENV === 'production';
+
 app.use(cors({             // Cross-Origin Resource Sharing configuration
-  origin: process.env.FRONTEND_URL || 'http://localhost:3000',
+  origin: (origin, callback) => {
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (!isProd) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    return callback(new Error(`CORS blocked for origin: ${origin}`));
+  },
   credentials: true        // Allow credentials (cookies, authorization headers)
 }));
 app.use(compression());    // Gzip compression for responses

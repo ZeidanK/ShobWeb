@@ -74,6 +74,7 @@ export const createCamera = async (req: AuthReq, res: Response): Promise<void> =
       type,
       location,
       settings,
+      metadata,
     } = req.body;
 
     // Check if camera with same name exists
@@ -110,6 +111,7 @@ export const createCamera = async (req: AuthReq, res: Response): Promise<void> =
         recordingEnabled: settings?.recordingEnabled || false,
         ...settings,
       },
+      metadata,
       createdBy: req.user?.userId,
     });
 
@@ -312,6 +314,36 @@ export const stopAIProcessing = async (req: Request, res: Response): Promise<voi
     });
   } catch (error) {
     console.error('Stop AI processing error:', error);
+    res.status(500).json({
+      success: false,
+      message: 'Server error',
+    });
+  }
+};
+
+// @desc    Bulk delete cameras by metadata.source (soft delete)
+// @route   DELETE /api/cameras/source/:source
+// @access  Private (dev branch use)
+export const deleteCamerasBySource = async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { source } = req.params;
+
+    if (!source) {
+      res.status(400).json({ success: false, message: 'source is required' });
+      return;
+    }
+
+    const result = await Camera.updateMany(
+      { isDeleted: false, 'metadata.source': source },
+      { $set: { isDeleted: true, lastModified: new Date() } }
+    );
+
+    res.json({
+      success: true,
+      message: `Deleted ${result.modifiedCount} cameras`,
+    });
+  } catch (error) {
+    console.error('Bulk delete cameras error:', error);
     res.status(500).json({
       success: false,
       message: 'Server error',

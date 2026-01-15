@@ -18,6 +18,10 @@ export interface ICamera extends Document {
     recordingEnabled: boolean;
   };
 
+  metadata?: {
+    source?: string; // optional label for grouping/import source
+  };
+
    vms?: {
     provider: 'shinobi' | 'zoneminder' | 'agentdvr' | 'other';
     serverId?: mongoose.Types.ObjectId; // ref: VmsServer
@@ -103,6 +107,12 @@ const cameraSchema = new Schema<ICamera>(
         type: Boolean,
         default: false
       }
+    },
+    // TEST-ONLY: metadata.source labels demo/import cameras for easier cleanup.
+    metadata: {
+      source: {
+        type: String,
+      },
     },
              /**
      * VMS mapping block

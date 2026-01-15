@@ -1004,24 +1004,26 @@ const AddCamera: React.FC = () => {
     setActiveStep((prev) => prev - 1);
   };
 
-  useEffect(() => {
-    const fetch = async () => {
-      try {
-        setVmsLoading(true);
-        const list = await getVmsServers();
-        setVmsServers(list);
-        if (!testVmsServerId && list.length > 0) {
-          setTestVmsServerId(list[0]._id);
-        }
-      } catch (error) {
-        console.error('Error fetching VMS servers:', error);
-      } finally {
-        setVmsLoading(false);
+  // Fetch VMS servers for the VMS-based test flow.
+  const loadVmsServers = async () => {
+    try {
+      setVmsLoading(true);
+      const list = await getVmsServers();
+      setVmsServers(list);
+      if (!testVmsServerId && list.length > 0) {
+        setTestVmsServerId(list[0]._id);
       }
-    };
+    } catch (error) {
+      console.error('Error fetching VMS servers:', error);
+    } finally {
+      setVmsLoading(false);
+    }
+  };
 
-    fetch();
-  }, [testVmsServerId]);
+  useEffect(() => {
+    // Fetch available VMS servers once for the test flow.
+    loadVmsServers();
+  }, []);
 
   const handleTestConnection = async () => {
     if (!formik.values.streamUrl) {
@@ -1234,7 +1236,13 @@ const AddCamera: React.FC = () => {
                     label="VMS Server"
                     value={testVmsServerId}
                     onChange={(e) => setTestVmsServerId(e.target.value)}
-                    helperText={vmsLoading ? 'Loading VMS servers...' : 'Choose the Shinobi server'}
+                    helperText={
+                      vmsLoading
+                        ? 'Loading VMS servers...'
+                        : vmsServers.length
+                          ? 'Choose the Shinobi server'
+                          : 'No VMS servers found'
+                    }
                   >
                     {vmsServers.map((server) => (
                       <MenuItem key={server._id} value={server._id}>
@@ -1251,6 +1259,11 @@ const AddCamera: React.FC = () => {
                     onChange={(e) => setTestMonitorId(e.target.value)}
                     placeholder="e.g. demo-monitor-1"
                   />
+                </Grid>
+                <Grid item xs={12}>
+                  <Button variant="outlined" onClick={loadVmsServers} type="button">
+                    Refresh VMS Servers
+                  </Button>
                 </Grid>
               </>
             )}
