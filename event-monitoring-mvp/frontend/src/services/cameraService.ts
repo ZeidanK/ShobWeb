@@ -198,6 +198,19 @@ export interface CreateVmsServerData {
   };
 }
 
+export interface UpdateVmsServerData {
+  name?: string;
+  provider?: VmsProvider;
+  baseUrl?: string;
+  auth?: {
+    apiKey?: string;
+    groupKey?: string;
+    username?: string;
+    password?: string;
+  };
+  isActive?: boolean;
+}
+
 
 /**
  * Small helper to parse JSON safely.
@@ -265,6 +278,60 @@ export const createVmsServer = async (payload: CreateVmsServerData): Promise<Vms
   }
 
   return data.data;
+};
+
+/**
+ * PATCH /api/vms/servers/:id
+ * Update VMS server details (including auth for providers like Shinobi).
+ */
+export const updateVmsServer = async (
+  serverId: string,
+  payload: UpdateVmsServerData
+): Promise<VmsServer> => {
+  const response = await fetch(`${API_URL}/vms/servers/${serverId}`, {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (response.status === 401) {
+    clearAuthStorage();
+  }
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to update VMS server');
+  }
+
+  return data.data;
+};
+
+/**
+ * DELETE /api/vms/servers/:id
+ * Soft-removes a VMS server by marking it inactive.
+ */
+export const deleteVmsServer = async (serverId: string): Promise<void> => {
+  const response = await fetch(`${API_URL}/vms/servers/${serverId}`, {
+    method: 'DELETE',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
+  });
+
+  if (response.status === 401) {
+    clearAuthStorage();
+  }
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to delete VMS server');
+  }
 };
 
 /**
@@ -350,4 +417,31 @@ export const getCameraVmsStreams = async (cameraId: string) => {
   }
 
   return data.data;
+};
+
+/**
+ * POST /api/cameras/test-connection
+ * Server-side reachability check for RTSP/HTTP stream URLs.
+ */
+export const testCameraConnection = async (streamUrl: string): Promise<{ ok: boolean; message: string }> => {
+  const response = await fetch(`${API_URL}/cameras/test-connection`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      ...getAuthHeader(),
+    },
+    body: JSON.stringify({ streamUrl }),
+  });
+
+  if (response.status === 401) {
+    clearAuthStorage();
+  }
+
+  const data = await safeJson(response);
+
+  if (!response.ok) {
+    throw new Error(data.message || 'Failed to test stream URL');
+  }
+
+  return data;
 };

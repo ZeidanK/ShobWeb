@@ -8,6 +8,7 @@ import {
   updateCameraStatus,
   startAIProcessing,
   stopAIProcessing,
+  testCameraConnection,
 } from '../controllers/cameraController';
 
 import {
@@ -91,6 +92,11 @@ router.post('/:id/ai/start', auth, startAIProcessing);
 // @desc    Stop AI processing for camera
 // @access  Private
 router.post('/:id/ai/stop', auth, stopAIProcessing);
+
+// @route   POST /api/cameras/test-connection
+// @desc    Test stream URL connectivity (RTSP/HTTP)
+// @access  Private
+router.post('/test-connection', auth, testCameraConnection);
 
 
 

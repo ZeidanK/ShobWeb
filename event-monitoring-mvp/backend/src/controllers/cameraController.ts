@@ -1,5 +1,8 @@
 import { Request, Response } from 'express';
 import { Camera } from '../models/Camera';
+import net from 'net';
+import http from 'http';
+import https from 'https';
 
 
 type AuthReq = Request & { user?: { userId?: string } };
@@ -313,4 +316,84 @@ export const stopAIProcessing = async (req: Request, res: Response): Promise<voi
       message: 'Server error',
     });
   }
+};
+
+// @desc    Test camera stream connectivity (RTSP/HTTP)
+// @route   POST /api/cameras/test-connection
+// @access  Private
+export const testCameraConnection = async (req: Request, res: Response): Promise<void> => {
+  const { streamUrl } = req.body as { streamUrl?: string };
+
+  if (!streamUrl) {
+    res.status(400).json({ success: false, message: 'streamUrl is required' });
+    return;
+  }
+
+  let url: URL;
+  try {
+    url = new URL(streamUrl);
+  } catch (error) {
+    res.status(400).json({ success: false, message: 'Invalid streamUrl format' });
+    return;
+  }
+
+  const timeoutMs = 4000;
+
+  // Helper: TCP check for RTSP (port open)
+  const testTcp = (host: string, port: number) =>
+    new Promise<{ ok: boolean; message: string }>((resolve) => {
+      const socket = new net.Socket();
+      let done = false;
+
+      const finish = (ok: boolean, message: string) => {
+        if (done) return;
+        done = true;
+        socket.destroy();
+        resolve({ ok, message });
+      };
+
+      socket.setTimeout(timeoutMs);
+      socket.once('connect', () => finish(true, 'TCP connection successful'));
+      socket.once('timeout', () => finish(false, 'Connection timed out'));
+      socket.once('error', (err) => finish(false, err.message));
+      socket.connect(port, host);
+    });
+
+  // Helper: HTTP(S) reachability check (any response is "reachable")
+  const testHttp = (targetUrl: URL) =>
+    new Promise<{ ok: boolean; message: string }>((resolve) => {
+      const client = targetUrl.protocol === 'https:' ? https : http;
+      const req = client.request(
+        targetUrl,
+        { method: 'HEAD', timeout: timeoutMs },
+        (resp) => {
+          resp.resume();
+          resolve({ ok: true, message: `HTTP reachable (${resp.statusCode})` });
+        }
+      );
+
+      req.on('timeout', () => {
+        req.destroy();
+        resolve({ ok: false, message: 'Connection timed out' });
+      });
+      req.on('error', (err) => resolve({ ok: false, message: err.message }));
+      req.end();
+    });
+
+  let result: { ok: boolean; message: string };
+  if (url.protocol === 'rtsp:') {
+    const port = Number(url.port) || 554;
+    result = await testTcp(url.hostname, port);
+  } else if (url.protocol === 'http:' || url.protocol === 'https:') {
+    result = await testHttp(url);
+  } else {
+    res.status(400).json({ success: false, message: 'Unsupported protocol' });
+    return;
+  }
+
+  res.status(200).json({
+    success: true,
+    ok: result.ok,
+    message: result.message,
+  });
 };

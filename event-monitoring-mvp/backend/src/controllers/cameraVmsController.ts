@@ -31,6 +31,7 @@ import { VmsServer } from '../models/VmsServer';
 export const connectCameraToVms = async (req: Request, res: Response) => {
   const cameraId = req.params.id;
   const { serverId, monitorId } = req.body as { serverId?: string; monitorId?: string };
+  const normalizedMonitorId = typeof monitorId === 'string' ? monitorId.trim() : monitorId;
 
   if (!serverId) {
     return res.status(400).json({ success: false, message: 'serverId is required' });
@@ -61,7 +62,7 @@ export const connectCameraToVms = async (req: Request, res: Response) => {
   camera.vms = {
     provider: vmsServer.provider,
     serverId: vmsServer._id,
-    monitorId: monitorId || camera.vms?.monitorId, // keep existing if already set
+    monitorId: normalizedMonitorId || camera.vms?.monitorId, // keep existing if already set
     lastSyncAt: new Date(),
   };
 

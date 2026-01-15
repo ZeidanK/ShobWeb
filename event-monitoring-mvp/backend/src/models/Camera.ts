@@ -81,7 +81,7 @@ const cameraSchema = new Schema<ICamera>(
     status: {
       type: String,
       enum: ['online', 'offline', 'maintenance'],
-      default: 'offline'
+      default: 'online' // New cameras should be ON by default
     },
     type: {
       type: String,

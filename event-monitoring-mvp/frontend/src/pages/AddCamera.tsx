@@ -791,7 +791,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { toast } from 'react-toastify';
-import { addCamera, CreateCameraData } from '../services/cameraService';
+import { addCamera, CreateCameraData, testCameraConnection } from '../services/cameraService';
 import {
   MapContainer,
   TileLayer,
@@ -902,6 +902,12 @@ const AddCamera: React.FC = () => {
     },
     validationSchema,
     onSubmit: async (values) => {
+      // Guard: only allow submission on the final step to prevent auto-add.
+      if (activeStep !== steps.length - 1) {
+        toast.warning('Complete all steps before adding the camera.');
+        return;
+      }
+
       try {
         console.log('Submitting camera data:', values);
 
@@ -1003,19 +1009,19 @@ const AddCamera: React.FC = () => {
     setConnectionStatus('idle');
     
     try {
-      // TODO: Replace with actual connection test API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      // Simple validation for mock purposes (allow RTSP/HTTP)
-      if (formik.values.streamUrl.startsWith('rtsp') || formik.values.streamUrl.startsWith('http')) {
+      // Server-side reachability check so tests reflect real connectivity.
+      const result = await testCameraConnection(formik.values.streamUrl);
+
+      if (result.ok) {
         setConnectionStatus('success');
-        toast.success('Connection test successful!');
+        toast.success(result.message || 'Connection test successful!');
       } else {
-        throw new Error('Invalid protocol');
+        setConnectionStatus('error');
+        toast.error(result.message || 'Connection test failed');
       }
-    } catch (error) {
+    } catch (error: any) {
       setConnectionStatus('error');
-      toast.error('Connection test failed');
+      toast.error(error.message || 'Connection test failed');
     } finally {
       setTestingConnection(false);
     }
@@ -1138,6 +1144,7 @@ const AddCamera: React.FC = () => {
                   onClick={handleTestConnection}
                   disabled={testingConnection}
                   startIcon={<TestIcon />}
+                  type="button" // Prevent form submit while testing
                   sx={{ minWidth: 140, height: 56 }}
                 >
                   {testingConnection ? <CircularProgress size={24} /> : 'Test'}
@@ -1435,6 +1442,7 @@ const AddCamera: React.FC = () => {
               disabled={activeStep === 0}
               onClick={handleBack}
               variant="outlined"
+              type="button" // Prevent form submit on navigation
             >
               Back
             </Button>
@@ -1442,6 +1450,7 @@ const AddCamera: React.FC = () => {
               <Button
                 variant="outlined"
                 onClick={() => navigate('/cameras')}
+                type="button" // Prevent form submit on cancel
               >
                 Cancel
               </Button>
@@ -1459,6 +1468,7 @@ const AddCamera: React.FC = () => {
                   onClick={handleNext}
                   variant="contained"
                   disabled={activeStep === 1 && connectionStatus !== 'success'}
+                  type="button" // Prevent form submit on step advance
                 >
                   Next
                 </Button>

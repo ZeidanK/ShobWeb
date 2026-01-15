@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Typography,
@@ -27,6 +27,7 @@ import {
 } from '@mui/icons-material';
 
 import { getCameras, getCameraVmsStreams } from '../services/cameraService';
+import Hls from 'hls.js';
 
 /**
  * Camera type used by LiveView.
@@ -150,7 +151,98 @@ const LiveView: React.FC = () => {
   const VideoPlayer: React.FC<{
     camera: Camera;
     isFullscreen?: boolean;
-  }> = ({ camera, isFullscreen = false }) => (
+  }> = ({ camera, isFullscreen = false }) => {
+    const isPlaying = Boolean(playingByCameraId[camera._id]);
+    const streams = streamsByCameraId[camera._id];
+    const embedUrl = streams?.liveEmbedUrl || null;
+    const liveHlsUrl = streams?.liveHlsUrl || null;
+    const isLoading = streamLoadingCameraId === camera._id;
+    const videoRef = useRef<HTMLVideoElement | null>(null);
+
+    useEffect(() => {
+      if (!isPlaying || !liveHlsUrl || !videoRef.current) {
+        return;
+      }
+
+      // Prefer HLS playback when available (more reliable than iframe).
+      if (videoRef.current.canPlayType('application/vnd.apple.mpegurl')) {
+        videoRef.current.src = liveHlsUrl;
+        videoRef.current.play().catch(() => undefined);
+        return;
+      }
+
+      if (Hls.isSupported()) {
+        const hls = new Hls();
+        hls.loadSource(liveHlsUrl);
+        hls.attachMedia(videoRef.current);
+        hls.on(Hls.Events.MANIFEST_PARSED, () => {
+          videoRef.current?.play().catch(() => undefined);
+        });
+
+        return () => {
+          hls.destroy();
+        };
+      }
+    }, [isPlaying, liveHlsUrl]);
+
+    const renderPlayer = () => {
+      // While fetching stream URLs
+      if (isLoading) {
+        return (
+          <Box sx={{ color: 'white', textAlign: 'center' }}>
+            <CircularProgress />
+            <Typography variant="body2" sx={{ mt: 1 }}>
+              Loading stream...
+            </Typography>
+          </Box>
+        );
+      }
+
+      // When playing and we have a browser-usable HLS URL
+      if (isPlaying && liveHlsUrl) {
+        return (
+          <Box sx={{ width: '100%', height: '100%' }}>
+            <video
+              ref={videoRef}
+              controls
+              playsInline
+              style={{ width: '100%', height: '100%', backgroundColor: '#000' }}
+            />
+          </Box>
+        );
+      }
+
+      // Fallback to iframe embed if HLS is missing
+      if (isPlaying && embedUrl) {
+        return (
+          <Box sx={{ width: '100%', height: '100%' }}>
+            <iframe
+              title={`live-${camera._id}`}
+              src={embedUrl}
+              style={{ width: '100%', height: '100%', border: 0 }}
+              allow="autoplay; fullscreen"
+            />
+          </Box>
+        );
+      }
+
+      // Default state: not playing yet (or no embed URL available)
+      return (
+        <Box sx={{ color: 'white', textAlign: 'center' }}>
+          <PlayArrowIcon sx={{ fontSize: 48, mb: 1 }} />
+          <Typography variant="body2">
+            {streams && !embedUrl && !liveHlsUrl
+              ? 'No VMS stream available for this camera'
+              : 'Click Play to load stream'}
+          </Typography>
+          <Typography variant="caption" display="block">
+            {camera.streamUrl}
+          </Typography>
+        </Box>
+      );
+    };
+
+    return (
     <Card sx={{ height: '100%' }}>
       <CardHeader
         title={camera.name}
@@ -191,52 +283,8 @@ const LiveView: React.FC = () => {
             justifyContent: 'center',
           }}
         >
-                    {camera.status === 'online' ? (
-            (() => {
-              const isPlaying = Boolean(playingByCameraId[camera._id]);
-              const streams = streamsByCameraId[camera._id];
-              const embedUrl = streams?.liveEmbedUrl || null;
-              const isLoading = streamLoadingCameraId === camera._id;
-
-              // While fetching stream URLs
-              if (isLoading) {
-                return (
-                  <Box sx={{ color: 'white', textAlign: 'center' }}>
-                    <CircularProgress />
-                    <Typography variant="body2" sx={{ mt: 1 }}>
-                      Loading stream...
-                    </Typography>
-                  </Box>
-                );
-              }
-
-              // When playing and we have a browser-usable embed URL
-              if (isPlaying && embedUrl) {
-                return (
-                  <Box sx={{ width: '100%', height: '100%' }}>
-                    <iframe
-                      title={`live-${camera._id}`}
-                      src={embedUrl}
-                      style={{ width: '100%', height: '100%', border: 0 }}
-                      allow="autoplay; fullscreen"
-                    />
-                  </Box>
-                );
-              }
-
-              // Default state: not playing yet (or no embed URL available)
-              return (
-                <Box sx={{ color: 'white', textAlign: 'center' }}>
-                  <PlayArrowIcon sx={{ fontSize: 48, mb: 1 }} />
-                  <Typography variant="body2">
-                    {streams && !embedUrl ? 'No VMS stream available for this camera' : 'Click Play to load stream'}
-                  </Typography>
-                  <Typography variant="caption" display="block">
-                    {camera.streamUrl}
-                  </Typography>
-                </Box>
-              );
-            })()
+          {camera.status === 'online' ? (
+            renderPlayer()
           ) : (
             <Box sx={{ color: 'gray', textAlign: 'center' }}>
               <Typography variant="body2">Camera Offline</Typography>
@@ -296,7 +344,8 @@ const LiveView: React.FC = () => {
         </Button>
       </CardActions>
     </Card>
-  );
+    );
+  };
 
 
   return (
