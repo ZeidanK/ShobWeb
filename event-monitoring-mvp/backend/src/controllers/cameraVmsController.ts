@@ -133,15 +133,67 @@ export const getCameraVmsStreams = async (req: Request, res: Response) => {
     return res.status(404).json({ success: false, message: 'Camera not found' });
   }
 
-  return res.status(200).json({
-    success: true,
-    data: {
-      cameraId: camera._id,
-      rtspUrl: camera.streamUrl,
-      vms: camera.vms || null,
-      // placeholders for next iteration:
-      liveUrl: null,
-      playbackUrl: null,
-    },
-  });
+  /**
+   * Streams contract
+   * - Always returns the stored RTSP URL and the current VMS mapping (if any)
+   * - If the camera is connected to a supported VMS provider (Shinobi for now),
+   *   returns browser-usable URLs computed from the stored VMS credentials + monitor id.
+   *
+   * Security note:
+   * - We NEVER return VMS credentials (apiKey/groupKey) directly.
+   * - Only derived stream URLs are returned to the frontend.
+   */
+  const baseResponse = {
+    cameraId: camera._id,
+    rtspUrl: camera.streamUrl,
+    vms: camera.vms || null,
+
+    // Browser-usable URLs (provider-dependent)
+    liveEmbedUrl: null as string | null,
+    liveHlsUrl: null as string | null,
+    snapshotUrl: null as string | null,
+
+    // Placeholders for next iteration
+    playbackUrl: null as string | null,
+  };
+
+  // If not connected to any VMS server/monitor, return the base contract.
+  const serverId = camera.vms?.serverId;
+  const monitorId = camera.vms?.monitorId;
+  const provider = camera.vms?.provider;
+
+  if (!serverId || !monitorId || !provider || provider === 'other') {
+    return res.status(200).json({ success: true, data: baseResponse });
+  }
+
+  const vmsServer = await VmsServer.findById(serverId);
+
+  if (!vmsServer || !vmsServer.isActive) {
+    return res.status(404).json({ success: false, message: 'VMS server not found or inactive' });
+  }
+
+  // Provider-specific URL generation
+  if (vmsServer.provider === 'shinobi') {
+    const baseUrl = String(vmsServer.baseUrl).replace(/\/+$/, '');
+    const apiKey = vmsServer.auth?.apiKey;
+    const groupKey = vmsServer.auth?.groupKey;
+
+    /**
+     * Shinobi URL format
+     * - embed:   {baseUrl}/{API_KEY}/embed/{GROUP_KEY}/{MONITOR_ID}
+     * - hls:     {baseUrl}/{API_KEY}/hls/{GROUP_KEY}/{MONITOR_ID}/s.m3u8
+     * - snapshot:{baseUrl}/{API_KEY}/jpeg/{GROUP_KEY}/{MONITOR_ID}/s.jpg
+     */
+    if (apiKey && groupKey) {
+      baseResponse.liveEmbedUrl = `${baseUrl}/${apiKey}/embed/${groupKey}/${monitorId}`;
+      baseResponse.liveHlsUrl = `${baseUrl}/${apiKey}/hls/${groupKey}/${monitorId}/s.m3u8`;
+      baseResponse.snapshotUrl = `${baseUrl}/${apiKey}/jpeg/${groupKey}/${monitorId}/s.jpg`;
+    }
+
+    return res.status(200).json({ success: true, data: baseResponse });
+  }
+
+  // Other providers not implemented yet: keep the base contract.
+  return res.status(200).json({ success: true, data: baseResponse });
 };
+

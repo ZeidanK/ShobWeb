@@ -99,8 +99,12 @@ const cameraSchema = new Schema<ICamera>(
         min: 1,
         max: 60
       },
-
-          /**
+      recordingEnabled: {
+        type: Boolean,
+        default: false
+      }
+    },
+             /**
      * VMS mapping block
      * Why: allows attaching a camera to a specific VMS server instance + monitor id,
      * so later we can request live/playback URLs from the VMS instead of trying to play RTSP directly in-browser.
@@ -123,11 +127,6 @@ const cameraSchema = new Schema<ICamera>(
       },
     },
 
-      recordingEnabled: {
-        type: Boolean,
-        default: false
-      }
-    },
     isActive: {
       type: Boolean,
       default: true

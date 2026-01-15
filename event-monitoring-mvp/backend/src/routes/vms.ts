@@ -1,20 +1,18 @@
-import express from 'express';
-import { auth, adminOnly } from '../middleware/auth';
-import { createVmsServer, listVmsServers } from '../controllers/vmsController';
+import { Router } from 'express';
+import { auth } from '../middleware/auth';
+import { listVmsServers, createVmsServer } from '../controllers/vmsController';
+
+const router = Router();
+
+router.use(auth);
 
 /**
- * VMS Routes
- *
- * - Protected by JWT auth.
- * - Restricted to admins by default (admin/super_admin),
- *   since VMS server configuration is a system-level change.
+ * DEV NOTE:
+ * These routes were admin-only, but for the camera-connection dev branch we allow any authenticated user
+ * so we can test Shinobi/VMS integration without fighting role setup.
+ * Revert to adminOnly before merging to main.
  */
-const router = express.Router();
-
-// Register a VMS server
-router.post('/servers', auth, adminOnly, createVmsServer);
-
-// List VMS servers
-router.get('/servers', auth, adminOnly, listVmsServers);
+router.get('/servers', listVmsServers);
+router.post('/servers', createVmsServer);
 
 export default router;

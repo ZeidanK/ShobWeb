@@ -83,6 +83,10 @@ const Cameras: React.FC = () => {
   const [newVmsProvider, setNewVmsProvider] = useState<VmsProvider>('shinobi');
   const [newVmsBaseUrl, setNewVmsBaseUrl] = useState('http://localhost:8080');
 
+  // Shinobi auth (dev/testing)
+  const [newVmsApiKey, setNewVmsApiKey] = useState('');
+  const [newVmsGroupKey, setNewVmsGroupKey] = useState('');
+
   // Connect dialog state
   const [vmsConnectOpen, setVmsConnectOpen] = useState(false);
   const [vmsConnectCamera, setVmsConnectCamera] = useState<Camera | null>(null);
@@ -127,10 +131,17 @@ const Cameras: React.FC = () => {
 
   const handleCreateVmsServer = async () => {
     try {
-      await createVmsServer({
+        await createVmsServer({
         name: newVmsName,
         provider: newVmsProvider,
         baseUrl: newVmsBaseUrl,
+
+        // Dev/testing: store Shinobi keys so backend can generate embed/hls URLs.
+        // VmsServer model strips auth from responses, so it won't be returned to frontend.
+        auth: {
+          apiKey: newVmsApiKey || undefined,
+          groupKey: newVmsGroupKey || undefined,
+        },
       });
 
       // Refresh list so UI reflects the new server
@@ -405,6 +416,22 @@ const Cameras: React.FC = () => {
               value={newVmsBaseUrl}
               onChange={(e) => setNewVmsBaseUrl(e.target.value)}
               placeholder="http://localhost:8080"
+              sx={{ minWidth: 260 }}
+            />
+
+                        <TextField
+              label="API Key (Shinobi)"
+              size="small"
+              value={newVmsApiKey}
+              onChange={(e) => setNewVmsApiKey(e.target.value)}
+              sx={{ minWidth: 260 }}
+            />
+
+            <TextField
+              label="Group Key (Shinobi)"
+              size="small"
+              value={newVmsGroupKey}
+              onChange={(e) => setNewVmsGroupKey(e.target.value)}
               sx={{ minWidth: 260 }}
             />
 

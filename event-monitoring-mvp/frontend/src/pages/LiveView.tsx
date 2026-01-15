@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -7,6 +7,7 @@ import {
   Card,
   CardContent,
   CardHeader,
+  CardActions,
   IconButton,
   Button,
   Chip,
@@ -15,6 +16,7 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
+  CircularProgress,
 } from '@mui/material';
 import {
   Fullscreen as FullscreenIcon,
@@ -24,49 +26,129 @@ import {
   Pause as PauseIcon,
 } from '@mui/icons-material';
 
-const LiveView: React.FC = () => {
-  const [fullscreenCamera, setFullscreenCamera] = useState<string | null>(null);
-  const [aiDetectionEnabled, setAiDetectionEnabled] = useState(true);
-  const [selectedCamera, setSelectedCamera] = useState<string | null>(null);
+import { getCameras, getCameraVmsStreams } from '../services/cameraService';
 
-  // Mock camera data
-  const cameras = [
-    {
-      id: '1',
-      name: 'Front Gate Camera',
-      status: 'online',
-      streamUrl: 'rtsp://192.168.1.100:554/stream',
-      aiActive: true,
-      detections: 3,
-    },
-    {
-      id: '2',
-      name: 'Parking Lot Camera',
-      status: 'online',
-      streamUrl: 'rtsp://192.168.1.101:554/stream',
-      aiActive: true,
-      detections: 1,
-    },
-    {
-      id: '3',
-      name: 'Side Entrance Camera',
-      status: 'offline',
-      streamUrl: 'rtsp://192.168.1.102:554/stream',
-      aiActive: false,
-      detections: 0,
-    },
-    {
-      id: '4',
-      name: 'Back Yard Camera',
-      status: 'online',
-      streamUrl: 'rtsp://192.168.1.103:554/stream',
-      aiActive: true,
-      detections: 0,
-    },
-  ];
+/**
+ * Camera type used by LiveView.
+ * Matches the backend camera model fields we rely on in the UI.
+ */
+interface Camera {
+  _id: string;
+  name: string;
+  status: 'online' | 'offline' | 'maintenance';
+  streamUrl: string;
+}
+
+/**
+ * Stream info contract from backend:
+ * GET /api/cameras/:id/vms/streams
+ *
+ * For Shinobi (when camera is connected to a VMS server + monitor):
+ * - liveEmbedUrl: browser-embeddable stream
+ * - liveHlsUrl / snapshotUrl: useful later (playback/thumbnail)
+ */
+interface CameraStreams {
+  cameraId: string;
+  rtspUrl: string;
+  vms: any | null;
+  liveEmbedUrl: string | null;
+  liveHlsUrl: string | null;
+  snapshotUrl: string | null;
+  playbackUrl: string | null;
+}
+
+const LiveView: React.FC = () => {
+    const [fullscreenCamera, setFullscreenCamera] = useState<string | null>(null);
+    const [aiDetectionEnabled, setAiDetectionEnabled] = useState(true);
+
+    // Real cameras from backend
+    const [cameras, setCameras] = useState<Camera[]>([]);
+    const [loading, setLoading] = useState(true);
+
+    // Streams info dialog (debug/testing)
+    const [streamsOpen, setStreamsOpen] = useState(false);
+    const [streamsText, setStreamsText] = useState<string>('');
+
+    /**
+     * Live playback state (per camera)
+     * - We only fetch stream URLs when the user clicks Play.
+     * - We cache the response so repeated Play doesn't refetch.
+     */
+    const [streamsByCameraId, setStreamsByCameraId] = useState<Record<string, CameraStreams | null>>({});
+    const [playingByCameraId, setPlayingByCameraId] = useState<Record<string, boolean>>({});
+    const [streamLoadingCameraId, setStreamLoadingCameraId] = useState<string | null>(null);
+
+
+  /**
+   * Load cameras from backend (replaces mock data).
+   */
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        setLoading(true);
+        const list = await getCameras();
+        setCameras(list);
+      } catch (err) {
+        console.error('Failed to load cameras:', err);
+        alert((err as any)?.message || 'Failed to load cameras');
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetch();
+  }, []);
+
+    /**
+   * Fetch VMS stream info for a camera and show it (debug/testing).
+   */
+    const handleShowStreams = async (camera: Camera) => {
+      try {
+        const data = await getCameraVmsStreams(camera._id);
+        setStreamsText(JSON.stringify(data, null, 2));
+        setStreamsOpen(true);
+      } catch (err) {
+        console.error('Failed to fetch streams:', err);
+        alert((err as any)?.message || 'Failed to fetch streams');
+      }
+    };
+
+    /**
+     * Start live playback for a single camera.
+     * - Fetch stream URLs once (cached).
+     * - Then mark the camera as "playing" so the iframe is rendered.
+     */
+    const handlePlay = async (camera: Camera) => {
+      try {
+        // If we already have streams cached, just start playing.
+        if (streamsByCameraId[camera._id]) {
+          setPlayingByCameraId(prev => ({ ...prev, [camera._id]: true }));
+          return;
+        }
+
+        setStreamLoadingCameraId(camera._id);
+
+        const data = (await getCameraVmsStreams(camera._id)) as CameraStreams;
+        setStreamsByCameraId(prev => ({ ...prev, [camera._id]: data }));
+        setPlayingByCameraId(prev => ({ ...prev, [camera._id]: true }));
+      } catch (err) {
+        console.error('Failed to start stream:', err);
+        alert((err as any)?.message || 'Failed to start stream');
+      } finally {
+        setStreamLoadingCameraId(null);
+      }
+    };
+
+  /**
+   * Stop live playback (removes iframe, keeps cached URLs).
+   */
+  const handlePause = (camera: Camera) => {
+    setPlayingByCameraId(prev => ({ ...prev, [camera._id]: false }));
+  };
+
 
   const VideoPlayer: React.FC<{
-    camera: any;
+    camera: Camera;
     isFullscreen?: boolean;
   }> = ({ camera, isFullscreen = false }) => (
     <Card sx={{ height: '100%' }}>
@@ -77,18 +159,17 @@ const LiveView: React.FC = () => {
             <Chip
               label={camera.status}
               size="small"
-              color={camera.status === 'online' ? 'success' : 'error'}
+              color={camera.status === 'online' ? 'success' : camera.status === 'offline' ? 'error' : 'warning'}
             />
-            {camera.aiActive && (
-              <Chip
-                label={`${camera.detections} detections`}
-                size="small"
-                color="info"
-              />
+
+            {/* LiveView does not have per-camera AI state yet; show global toggle state only */}
+            {aiDetectionEnabled && (
+              <Chip label="AI ENABLED" size="small" color="info" />
             )}
+
             <IconButton
               size="small"
-              onClick={() => setFullscreenCamera(isFullscreen ? null : camera.id)}
+              onClick={() => setFullscreenCamera(isFullscreen ? null : camera._id)}
             >
               <FullscreenIcon />
             </IconButton>
@@ -96,6 +177,7 @@ const LiveView: React.FC = () => {
         }
         sx={{ pb: 1 }}
       />
+
       <CardContent sx={{ pt: 0 }}>
         <Box
           sx={{
@@ -109,26 +191,61 @@ const LiveView: React.FC = () => {
             justifyContent: 'center',
           }}
         >
-          {camera.status === 'online' ? (
-            <Box sx={{ color: 'white', textAlign: 'center' }}>
-              <PlayArrowIcon sx={{ fontSize: 48, mb: 1 }} />
-              <Typography variant="body2">
-                Live Stream
-              </Typography>
-              <Typography variant="caption" display="block">
-                {camera.streamUrl}
-              </Typography>
-            </Box>
+                    {camera.status === 'online' ? (
+            (() => {
+              const isPlaying = Boolean(playingByCameraId[camera._id]);
+              const streams = streamsByCameraId[camera._id];
+              const embedUrl = streams?.liveEmbedUrl || null;
+              const isLoading = streamLoadingCameraId === camera._id;
+
+              // While fetching stream URLs
+              if (isLoading) {
+                return (
+                  <Box sx={{ color: 'white', textAlign: 'center' }}>
+                    <CircularProgress />
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      Loading stream...
+                    </Typography>
+                  </Box>
+                );
+              }
+
+              // When playing and we have a browser-usable embed URL
+              if (isPlaying && embedUrl) {
+                return (
+                  <Box sx={{ width: '100%', height: '100%' }}>
+                    <iframe
+                      title={`live-${camera._id}`}
+                      src={embedUrl}
+                      style={{ width: '100%', height: '100%', border: 0 }}
+                      allow="autoplay; fullscreen"
+                    />
+                  </Box>
+                );
+              }
+
+              // Default state: not playing yet (or no embed URL available)
+              return (
+                <Box sx={{ color: 'white', textAlign: 'center' }}>
+                  <PlayArrowIcon sx={{ fontSize: 48, mb: 1 }} />
+                  <Typography variant="body2">
+                    {streams && !embedUrl ? 'No VMS stream available for this camera' : 'Click Play to load stream'}
+                  </Typography>
+                  <Typography variant="caption" display="block">
+                    {camera.streamUrl}
+                  </Typography>
+                </Box>
+              );
+            })()
           ) : (
             <Box sx={{ color: 'gray', textAlign: 'center' }}>
-              <Typography variant="body2">
-                Camera Offline
-              </Typography>
+              <Typography variant="body2">Camera Offline</Typography>
             </Box>
           )}
-          
-          {/* Detection overlay (when AI is active) */}
-          {camera.aiActive && camera.status === 'online' && (
+
+
+          {/* Detection overlay (global toggle only, until AI is per-camera) */}
+          {aiDetectionEnabled && camera.status === 'online' && (
             <Box
               sx={{
                 position: 'absolute',
@@ -141,21 +258,29 @@ const LiveView: React.FC = () => {
                 fontSize: '0.75rem',
               }}
             >
-              AI ACTIVE
+              AI ENABLED
             </Box>
           )}
         </Box>
-        
+
         <Box sx={{ display: 'flex', justifyContent: 'space-between', mt: 2 }}>
           <Box sx={{ display: 'flex', gap: 1 }}>
-            <IconButton size="small">
-              <PlayArrowIcon />
-            </IconButton>
-            <IconButton size="small">
+            <IconButton
+              size="small"
+              onClick={() => handlePlay(camera)}
+              disabled={camera.status !== 'online'}
+            >
+            <PlayArrowIcon />
+              </IconButton>
+              <IconButton
+                size="small"
+                onClick={() => handlePause(camera)}
+                disabled={camera.status !== 'online'}
+              >
               <PauseIcon />
             </IconButton>
             <IconButton size="small">
-              <VolumeUpIcon />
+              <VolumeUpIcon />  
             </IconButton>
           </Box>
           <IconButton size="small">
@@ -163,8 +288,16 @@ const LiveView: React.FC = () => {
           </IconButton>
         </Box>
       </CardContent>
+
+      {/* Debug/testing actions (no real playback yet) */}
+      <CardActions sx={{ justifyContent: 'flex-end' }}>
+        <Button size="small" variant="outlined" onClick={() => handleShowStreams(camera)}>
+          Streams Info
+        </Button>
+      </CardActions>
     </Card>
   );
+
 
   return (
     <Box sx={{ height: 'calc(100vh - 112px)', overflow: 'auto' }}>
@@ -191,13 +324,20 @@ const LiveView: React.FC = () => {
       </Box>
 
       {/* Camera Grid */}
-      <Grid container spacing={3}>
-        {cameras.map((camera) => (
-          <Grid item xs={12} sm={6} lg={6} key={camera.id}>
-            <VideoPlayer camera={camera} />
-          </Grid>
-        ))}
-      </Grid>
+      {loading ? (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress size={60} />
+        </Box>
+      ) : (
+        <Grid container spacing={3}>
+          {cameras.map((camera) => (
+            <Grid item xs={12} sm={6} lg={6} key={camera._id}>
+              <VideoPlayer camera={camera} />
+            </Grid>
+          ))}
+        </Grid>
+      )}
+
 
       {/* Fullscreen Dialog */}
       <Dialog
@@ -221,7 +361,7 @@ const LiveView: React.FC = () => {
         <DialogContent>
           {fullscreenCamera && (
             <VideoPlayer
-              camera={cameras.find(c => c.id === fullscreenCamera)}
+              camera={cameras.find(c => c._id === fullscreenCamera)!}
               isFullscreen
             />
           )}
@@ -245,6 +385,25 @@ const LiveView: React.FC = () => {
           </Button>
         </Box>
       </Paper>
+            {/* Streams Info Dialog (debug/testing) */}
+      <Dialog open={streamsOpen} onClose={() => setStreamsOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>Camera Stream Info</DialogTitle>
+        <DialogContent>
+          <Box
+            component="pre"
+            sx={{
+              backgroundColor: '#111',
+              color: '#eee',
+              p: 2,
+              borderRadius: 1,
+              overflow: 'auto',
+              fontSize: '0.85rem',
+            }}
+          >
+            {streamsText}
+          </Box>
+        </DialogContent>
+      </Dialog>
     </Box>
   );
 };

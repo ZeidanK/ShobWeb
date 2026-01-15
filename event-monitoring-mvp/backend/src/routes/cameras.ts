@@ -16,7 +16,7 @@ import {
   getCameraVmsStreams
 } from '../controllers/cameraVmsController';
 
-import { auth, adminOnly } from '../middleware/auth';
+import { auth } from '../middleware/auth';
 import { validateCamera } from '../middleware/validation';
 
 const router = express.Router();
@@ -39,12 +39,13 @@ router.post('/', auth, validateCamera, createCamera);
 // @route   PUT /api/cameras/:id
 // @desc    Update camera
 // @access  Private (Admin only)
-router.put('/:id', auth, adminOnly, validateCamera, updateCamera);
+router.put('/:id', auth, validateCamera, updateCamera);
+
 
 // @route   DELETE /api/cameras/:id
 // @desc    Delete camera
-// @access  Private (Admin only)
-router.delete('/:id', auth, adminOnly, deleteCamera);
+// @access  Private (dev branch: any authenticated user)
+router.delete('/:id', auth, deleteCamera);
 
 // @route   PATCH /api/cameras/:id/status
 // @desc    Update camera status
@@ -63,15 +64,17 @@ router.patch('/:id/status', auth, updateCameraStatus);
  * - Our app needs a stable API contract to attach cameras to a VMS and fetch playable URLs.
  */
 
+
 // @route   POST /api/cameras/:id/vms/connect
 // @desc    Connect camera to a VMS server (save mapping to camera.vms)
-// @access  Private (Admin only)
-router.post('/:id/vms/connect', auth, adminOnly, connectCameraToVms);
+// @access  Private (dev branch: any authenticated user)
+router.post('/:id/vms/connect', auth, connectCameraToVms);
+
 
 // @route   POST /api/cameras/:id/vms/disconnect
 // @desc    Disconnect camera from VMS (clear mapping from camera.vms)
-// @access  Private (Admin only)
-router.post('/:id/vms/disconnect', auth, adminOnly, disconnectCameraFromVms);
+// @access  Private (dev branch: any authenticated user)
+router.post('/:id/vms/disconnect', auth, disconnectCameraFromVms);
 
 // @route   GET /api/cameras/:id/vms/streams
 // @desc    Get stream info for camera (RTSP + VMS mapping; later HLS/WebRTC URLs)

@@ -50,6 +50,7 @@ backend/build/
 coverage/
 *.lcov
 .nyc_output
+vms-lab
 
 # =============================================================================
 # DATABASE FILES

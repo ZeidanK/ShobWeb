@@ -9,7 +9,16 @@
  * Backend base URL
  * Uses env var when available (Docker / deployed), falls back to localhost.
  */
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+const API_URL = process.env.REACT_APP_API_BASE_URL || process.env.REACT_APP_API_URL || 'http://localhost:5000/api';
+
+  function clearAuthStorage() {
+  // Token is stored in localStorage and auth state is persisted by redux-persist.
+  // If backend rejects the token (401), force a clean re-login.
+  localStorage.removeItem('token');
+  localStorage.removeItem('persist:root');
+}
+
+
 
 /**
  * Helper function to retrieve JWT token from localStorage
@@ -55,6 +64,10 @@ export const addCamera = async (cameraData: CreateCameraData) => {
     body: JSON.stringify(cameraData),
   });
 
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
+
   const data = await response.json();
 
   if (!response.ok) {
@@ -75,6 +88,10 @@ export const getCameras = async () => {
       ...getAuthHeader(),
     },
   });
+
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
 
   const data = await response.json();
 
@@ -104,6 +121,9 @@ export const setCameraStatus = async (
     body: JSON.stringify({ status }),
   });
 
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
@@ -126,6 +146,10 @@ export const deleteCamera = async (cameraId: string): Promise<void> => {
     ...getAuthHeader(),
     }, 
   });
+
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
 
   const data = await response.json().catch(() => ({}));
 
@@ -158,11 +182,22 @@ export interface CreateVmsServerData {
   provider: VmsProvider;
   baseUrl: string;
   auth?: {
+    /**
+     * Shinobi needs BOTH:
+     * - apiKey
+     * - groupKey
+     * These are stored in MongoDB and are never serialized back to the frontend
+     * because VmsServer.ts strips `auth` in toJSON/toObject.
+     */
     apiKey?: string;
+    groupKey?: string;
+
+    // Other providers may use username/password instead
     username?: string;
     password?: string;
   };
 }
+
 
 /**
  * Small helper to parse JSON safely.
@@ -191,6 +226,10 @@ export const getVmsServers = async (): Promise<VmsServer[]> => {
     },
   });
 
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
+
   const data = await safeJson(response);
 
   if (!response.ok) {
@@ -214,6 +253,10 @@ export const createVmsServer = async (payload: CreateVmsServerData): Promise<Vms
     },
     body: JSON.stringify(payload),
   });
+
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
 
   const data = await safeJson(response);
 
@@ -242,6 +285,10 @@ export const connectCameraToVms = async (
     body: JSON.stringify(payload),
   });
 
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
+
   const data = await safeJson(response);
 
   if (!response.ok) {
@@ -264,6 +311,10 @@ export const disconnectCameraFromVms = async (cameraId: string) => {
       ...getAuthHeader(),
     },
   });
+
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
 
   const data = await safeJson(response);
 
@@ -288,6 +339,10 @@ export const getCameraVmsStreams = async (cameraId: string) => {
     },
   });
 
+  if (response.status === 401) {
+  clearAuthStorage();
+  }
+  
   const data = await safeJson(response);
 
   if (!response.ok) {

@@ -20,19 +20,24 @@ export interface IVmsServer extends Document {
   name: string;                 // Friendly label, e.g. "Local Shinobi"
   provider: VmsProvider;        // Which VMS type this server is
   baseUrl: string;              // Base URL of the VMS server (http://host:port)
-  auth?: {
-    /**
-     * Different VMS providers use different auth styles:
-     * - Some use API keys/tokens
-     * - Some use username/password
-     * We'll store both (optional) and only use what the chosen provider needs.
-     *
-     * NOTE (security): For production, secrets should be encrypted at rest or stored in a vault.
-     */
-    apiKey?: string;
-    username?: string;
-    password?: string;
-  };
+auth?: {
+  /**
+   * Different VMS providers use different auth styles:
+   * - Some use API keys/tokens
+   * - Some use username/password
+   *
+   * Shinobi needs BOTH:
+   * - apiKey (API KEY)
+   * - groupKey (GROUP KEY)
+   *
+   * NOTE (security): For production, secrets should be encrypted at rest or stored in a vault.
+   */
+  apiKey?: string;
+  groupKey?: string; // Shinobi GROUP KEY
+  username?: string;
+  password?: string;
+};
+
   isActive: boolean;            // Allows disabling a VMS server without deleting it
   createdAt: Date;
   updatedAt: Date;
@@ -60,6 +65,7 @@ const vmsServerSchema = new Schema<IVmsServer>(
     },
     auth: {
       apiKey: { type: String },
+      groupKey: { type: String },
       username: { type: String },
       password: { type: String },
     },
@@ -68,7 +74,26 @@ const vmsServerSchema = new Schema<IVmsServer>(
       default: true,
     },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+
+    /**
+     * Security: never serialize credentials back to clients.
+     * Controllers should still be careful, but this prevents accidental leakage.
+     */
+    toJSON: {
+      transform: (_doc: unknown, ret: any) => {
+        delete ret.auth;
+        return ret;
+      },
+    },
+    toObject: {
+      transform: (_doc: unknown, ret: any) => {
+        delete ret.auth;
+        return ret;
+      },
+    },
+  }
 );
 
 // Helpful indexes
