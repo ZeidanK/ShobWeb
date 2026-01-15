@@ -7,6 +7,7 @@ const router = Router();
 router.use(auth);
 
 /**
+ * TEST-ONLY: dev-branch access relaxes admin-only routes so we can verify VMS integration quickly.
  * DEV NOTE:
  * These routes were admin-only, but for the camera-connection dev branch we allow any authenticated user
  * so we can test Shinobi/VMS integration without fighting role setup.

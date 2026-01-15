@@ -13,7 +13,7 @@ import mongoose, { Document, Schema } from 'mongoose';
  */
 
 
-//this is just for the testing phase
+// TEST-ONLY: provider list is intentionally small for early integration testing.
 export type VmsProvider = 'shinobi' | 'zoneminder' | 'agentdvr' | 'other';
 
 export interface IVmsServer extends Document {

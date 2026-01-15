@@ -66,12 +66,14 @@ router.patch('/:id/status', auth, updateCameraStatus);
  */
 
 
+// TEST-ONLY: dev branch allows any authenticated user to connect VMS for faster validation.
 // @route   POST /api/cameras/:id/vms/connect
 // @desc    Connect camera to a VMS server (save mapping to camera.vms)
 // @access  Private (dev branch: any authenticated user)
 router.post('/:id/vms/connect', auth, connectCameraToVms);
 
 
+// TEST-ONLY: dev branch allows any authenticated user to disconnect VMS for faster validation.
 // @route   POST /api/cameras/:id/vms/disconnect
 // @desc    Disconnect camera from VMS (clear mapping from camera.vms)
 // @access  Private (dev branch: any authenticated user)

@@ -85,7 +85,7 @@ const Cameras: React.FC = () => {
   const [newVmsProvider, setNewVmsProvider] = useState<VmsProvider>('shinobi');
   const [newVmsBaseUrl, setNewVmsBaseUrl] = useState('http://localhost:8080');
 
-  // Shinobi auth (dev/testing)
+  // TEST-ONLY: Shinobi auth inputs are exposed for development validation.
   const [newVmsApiKey, setNewVmsApiKey] = useState('');
   const [newVmsGroupKey, setNewVmsGroupKey] = useState('');
 
@@ -104,7 +104,7 @@ const Cameras: React.FC = () => {
   const [selectedVmsServerId, setSelectedVmsServerId] = useState<string>('');
   const [monitorId, setMonitorId] = useState<string>('');
 
-  // Streams dialog state (shows backend response for quick testing)
+  // TEST-ONLY: Streams dialog prints raw backend response for quick validation.
   const [streamsOpen, setStreamsOpen] = useState(false);
   const [streamsText, setStreamsText] = useState<string>('');
 
@@ -441,8 +441,8 @@ const Cameras: React.FC = () => {
         </Typography>
       </Box>
 
-            {/* VMS Servers Panel (for testing + integration setup) */}
-      <Card sx={{ mb: 3 }}>
+            {/* TEST-ONLY: VMS Servers Panel is for integration setup during development. */}
+            <Card sx={{ mb: 3 }}>
         <CardContent>
           <Typography variant="h6" gutterBottom>
             VMS Servers
@@ -694,7 +694,7 @@ const Cameras: React.FC = () => {
         </DialogActions>
       </Dialog>
 
-      {/* Streams Info Dialog (debug/testing) */}
+      {/* TEST-ONLY: Streams Info Dialog is a raw debug view. */}
       <Dialog open={streamsOpen} onClose={() => setStreamsOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Camera Stream Info</DialogTitle>
         <DialogContent>

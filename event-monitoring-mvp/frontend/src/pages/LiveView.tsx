@@ -66,7 +66,7 @@ const LiveView: React.FC = () => {
     const [cameras, setCameras] = useState<Camera[]>([]);
     const [loading, setLoading] = useState(true);
 
-    // Streams info dialog (debug/testing)
+    // TEST-ONLY: Streams info dialog prints raw stream JSON for validation.
     const [streamsOpen, setStreamsOpen] = useState(false);
     const [streamsText, setStreamsText] = useState<string>('');
 
@@ -337,7 +337,7 @@ const LiveView: React.FC = () => {
         </Box>
       </CardContent>
 
-      {/* Debug/testing actions (no real playback yet) */}
+      {/* TEST-ONLY: Debug actions to inspect stream payloads. */}
       <CardActions sx={{ justifyContent: 'flex-end' }}>
         <Button size="small" variant="outlined" onClick={() => handleShowStreams(camera)}>
           Streams Info
@@ -434,7 +434,7 @@ const LiveView: React.FC = () => {
           </Button>
         </Box>
       </Paper>
-            {/* Streams Info Dialog (debug/testing) */}
+            {/* TEST-ONLY: Streams Info Dialog shows raw JSON. */}
       <Dialog open={streamsOpen} onClose={() => setStreamsOpen(false)} maxWidth="md" fullWidth>
         <DialogTitle>Camera Stream Info</DialogTitle>
         <DialogContent>

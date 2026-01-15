@@ -35,7 +35,7 @@ const Events: React.FC = () => {
   const [page, setPage] = useState(1);
 
   // Mock data - replace with real API calls
-  const mockEvents = [
+const mockEvents = [
     {
       id: '1',
       title: 'Person Detected',

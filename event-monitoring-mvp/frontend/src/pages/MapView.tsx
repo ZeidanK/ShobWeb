@@ -155,7 +155,6 @@ const MapView: React.FC = () => {
       setCameras(cameras);
       setEvents(events);
       
-      // Generate mock detections for demonstration (will be replaced with real API)
       const mockDetections = generateMockDetections(cameras);
       setDetections(mockDetections);
     } catch (error) {

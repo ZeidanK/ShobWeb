@@ -752,7 +752,7 @@
 //   );
 // };
 
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   Box,
   Typography,
@@ -791,7 +791,7 @@ import { useNavigate } from 'react-router-dom';
 import { useFormik } from 'formik';
 import * as yup from 'yup';
 import { toast } from 'react-toastify';
-import { addCamera, CreateCameraData, testCameraConnection } from '../services/cameraService';
+import { addCamera, CreateCameraData, getVmsServers, testCameraConnection, VmsServer } from '../services/cameraService';
 import {
   MapContainer,
   TileLayer,
@@ -883,6 +883,11 @@ const AddCamera: React.FC = () => {
   const [testingConnection, setTestingConnection] = useState(false);
   const [connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [showMapPreview, setShowMapPreview] = useState(false);
+  const [vmsServers, setVmsServers] = useState<VmsServer[]>([]);
+  const [vmsLoading, setVmsLoading] = useState(false);
+  const [testViaVms, setTestViaVms] = useState(false);
+  const [testVmsServerId, setTestVmsServerId] = useState('');
+  const [testMonitorId, setTestMonitorId] = useState('');
 
   const formik = useFormik({
     initialValues: {
@@ -999,6 +1004,25 @@ const AddCamera: React.FC = () => {
     setActiveStep((prev) => prev - 1);
   };
 
+  useEffect(() => {
+    const fetch = async () => {
+      try {
+        setVmsLoading(true);
+        const list = await getVmsServers();
+        setVmsServers(list);
+        if (!testVmsServerId && list.length > 0) {
+          setTestVmsServerId(list[0]._id);
+        }
+      } catch (error) {
+        console.error('Error fetching VMS servers:', error);
+      } finally {
+        setVmsLoading(false);
+      }
+    };
+
+    fetch();
+  }, [testVmsServerId]);
+
   const handleTestConnection = async () => {
     if (!formik.values.streamUrl) {
       toast.error('Please enter a stream URL first');
@@ -1008,9 +1032,22 @@ const AddCamera: React.FC = () => {
     setTestingConnection(true);
     setConnectionStatus('idle');
     
+    if (testViaVms) {
+      if (!testVmsServerId || !testMonitorId) {
+        toast.error('Select a VMS server and enter a Monitor ID');
+        setTestingConnection(false);
+        return;
+      }
+    }
+
     try {
       // Server-side reachability check so tests reflect real connectivity.
-      const result = await testCameraConnection(formik.values.streamUrl);
+      const result = await testCameraConnection({
+        streamUrl: formik.values.streamUrl,
+        mode: testViaVms ? 'vms' : 'rtsp',
+        vmsServerId: testViaVms ? testVmsServerId : undefined,
+        monitorId: testViaVms ? testMonitorId : undefined,
+      });
 
       if (result.ok) {
         setConnectionStatus('success');
@@ -1035,7 +1072,7 @@ const AddCamera: React.FC = () => {
 
     try {
       // TODO: Replace with actual geocoding API call (Google Maps, OpenStreetMap, etc.)
-      // For now, using mock geocoding
+      // TEST-ONLY: Use mock coordinates to keep the flow working without a geocoder.
       const mockCoordinates = {
         lat: 40.7128 + (Math.random() - 0.5) * 0.1,
         lng: -74.0060 + (Math.random() - 0.5) * 0.1,
@@ -1176,6 +1213,47 @@ const AddCamera: React.FC = () => {
                 </CardContent>
               </Card>
             </Grid>
+            <Grid item xs={12}>
+              {/* TEST-ONLY: Toggle between direct RTSP test and VMS (Shinobi) reachability. */}
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={testViaVms}
+                    onChange={(e) => setTestViaVms(e.target.checked)}
+                  />
+                }
+                label="Test via VMS (Shinobi)"
+              />
+            </Grid>
+            {testViaVms && (
+              <>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    select
+                    fullWidth
+                    label="VMS Server"
+                    value={testVmsServerId}
+                    onChange={(e) => setTestVmsServerId(e.target.value)}
+                    helperText={vmsLoading ? 'Loading VMS servers...' : 'Choose the Shinobi server'}
+                  >
+                    {vmsServers.map((server) => (
+                      <MenuItem key={server._id} value={server._id}>
+                        {server.name} ({server.provider})
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField
+                    fullWidth
+                    label="Monitor ID"
+                    value={testMonitorId}
+                    onChange={(e) => setTestMonitorId(e.target.value)}
+                    placeholder="e.g. demo-monitor-1"
+                  />
+                </Grid>
+              </>
+            )}
           </Grid>
         );
 

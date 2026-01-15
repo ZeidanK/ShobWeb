@@ -423,14 +423,19 @@ export const getCameraVmsStreams = async (cameraId: string) => {
  * POST /api/cameras/test-connection
  * Server-side reachability check for RTSP/HTTP stream URLs.
  */
-export const testCameraConnection = async (streamUrl: string): Promise<{ ok: boolean; message: string }> => {
+export const testCameraConnection = async (payload: {
+  streamUrl: string;
+  mode?: 'rtsp' | 'vms';
+  vmsServerId?: string;
+  monitorId?: string;
+}): Promise<{ ok: boolean; message: string }> => {
   const response = await fetch(`${API_URL}/cameras/test-connection`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       ...getAuthHeader(),
     },
-    body: JSON.stringify({ streamUrl }),
+    body: JSON.stringify(payload),
   });
 
   if (response.status === 401) {

@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { Camera } from '../models/Camera';
+import { VmsServer } from '../models/VmsServer';
 import net from 'net';
 import http from 'http';
 import https from 'https';
@@ -322,18 +323,15 @@ export const stopAIProcessing = async (req: Request, res: Response): Promise<voi
 // @route   POST /api/cameras/test-connection
 // @access  Private
 export const testCameraConnection = async (req: Request, res: Response): Promise<void> => {
-  const { streamUrl } = req.body as { streamUrl?: string };
+  const { streamUrl, mode, vmsServerId, monitorId } = req.body as {
+    streamUrl?: string;
+    mode?: 'rtsp' | 'vms';
+    vmsServerId?: string;
+    monitorId?: string;
+  };
 
   if (!streamUrl) {
     res.status(400).json({ success: false, message: 'streamUrl is required' });
-    return;
-  }
-
-  let url: URL;
-  try {
-    url = new URL(streamUrl);
-  } catch (error) {
-    res.status(400).json({ success: false, message: 'Invalid streamUrl format' });
     return;
   }
 
@@ -360,12 +358,12 @@ export const testCameraConnection = async (req: Request, res: Response): Promise
     });
 
   // Helper: HTTP(S) reachability check (any response is "reachable")
-  const testHttp = (targetUrl: URL) =>
+  const testHttp = (targetUrl: URL, method: 'HEAD' | 'GET' = 'HEAD') =>
     new Promise<{ ok: boolean; message: string }>((resolve) => {
       const client = targetUrl.protocol === 'https:' ? https : http;
       const req = client.request(
         targetUrl,
-        { method: 'HEAD', timeout: timeoutMs },
+        { method, timeout: timeoutMs },
         (resp) => {
           resp.resume();
           resolve({ ok: true, message: `HTTP reachable (${resp.statusCode})` });
@@ -380,15 +378,61 @@ export const testCameraConnection = async (req: Request, res: Response): Promise
       req.end();
     });
 
+  const selectedMode = mode || 'rtsp';
   let result: { ok: boolean; message: string };
-  if (url.protocol === 'rtsp:') {
-    const port = Number(url.port) || 554;
-    result = await testTcp(url.hostname, port);
-  } else if (url.protocol === 'http:' || url.protocol === 'https:') {
-    result = await testHttp(url);
+
+  if (selectedMode === 'vms') {
+    if (!vmsServerId || !monitorId) {
+      res.status(400).json({ success: false, message: 'vmsServerId and monitorId are required for VMS test' });
+      return;
+    }
+
+    const vmsServer = await VmsServer.findById(vmsServerId);
+    if (!vmsServer || !vmsServer.isActive) {
+      res.status(404).json({ success: false, message: 'VMS server not found or inactive' });
+      return;
+    }
+
+    if (vmsServer.provider !== 'shinobi') {
+      res.status(400).json({ success: false, message: 'VMS test currently supports Shinobi only' });
+      return;
+    }
+
+    const baseUrl = String(vmsServer.baseUrl).replace(/\/+$/, '');
+    const apiKey = vmsServer.auth?.apiKey;
+    const groupKey = vmsServer.auth?.groupKey;
+
+    if (!apiKey || !groupKey) {
+      res.status(400).json({ success: false, message: 'VMS server missing Shinobi auth keys' });
+      return;
+    }
+
+    // TEST-ONLY: VMS reachability check uses Shinobi HLS/snapshot instead of direct RTSP.
+    const hlsUrl = new URL(`${baseUrl}/${apiKey}/hls/${groupKey}/${monitorId}/s.m3u8`);
+    const snapshotUrl = new URL(`${baseUrl}/${apiKey}/jpeg/${groupKey}/${monitorId}/s.jpg`);
+
+    result = await testHttp(hlsUrl, 'GET');
+    if (!result.ok) {
+      result = await testHttp(snapshotUrl, 'GET');
+    }
   } else {
-    res.status(400).json({ success: false, message: 'Unsupported protocol' });
-    return;
+    let url: URL;
+    try {
+      url = new URL(streamUrl);
+    } catch (error) {
+      res.status(400).json({ success: false, message: 'Invalid streamUrl format' });
+      return;
+    }
+
+    if (url.protocol === 'rtsp:') {
+      const port = Number(url.port) || 554;
+      result = await testTcp(url.hostname, port);
+    } else if (url.protocol === 'http:' || url.protocol === 'https:') {
+      result = await testHttp(url);
+    } else {
+      res.status(400).json({ success: false, message: 'Unsupported protocol' });
+      return;
+    }
   }
 
   res.status(200).json({
